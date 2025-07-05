@@ -98,14 +98,14 @@ function AIMessageNode({ data }: NodeProps<AIMessageNodeData>) {
           </div>
         ) : (
           <>
-            {isGenerating || !content ? (
+            {isGenerating || (!content && !isEditing) ? (
               <div className="flex items-center gap-2 text-sm text-gray-400">
                 <div className="animate-spin w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full"></div>
                 <span>Generating response...</span>
               </div>
             ) : (
               <div 
-                className="text-sm text-gray-100 whitespace-pre-wrap cursor-pointer hover:bg-gray-800 p-1 rounded"
+                className="text-sm text-gray-100 whitespace-pre-wrap cursor-pointer hover:bg-gray-800 p-1 rounded transition-colors"
                 onClick={() => setIsEditing(true)}
               >
                 {content || 'Click to edit...'}

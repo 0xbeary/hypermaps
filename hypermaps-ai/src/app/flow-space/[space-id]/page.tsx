@@ -41,6 +41,7 @@ function FlowSpace() {
   const updateMessage = useUpdateEntity(ChatMessage);
   const deleteMessage = useDeleteEntity();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
 
   const handleGenerateAIResponse = useCallback(async (userMessage: ChatMessage) => {
     if (isGenerating) return;
@@ -49,8 +50,9 @@ function FlowSpace() {
     
     try {
       // Create a placeholder AI message immediately
+      const aiMessageId = uuidv4();
       const aiMessage = createMessage({
-        id: uuidv4(),
+        id: aiMessageId,
         content: "", // Empty content initially
         role: "assistant",
         createdAt: new Date(),
@@ -59,7 +61,9 @@ function FlowSpace() {
         position: (messages?.length || 0) + 1,
       });
 
-      // Call your AI service (replace with actual API call)
+      setStreamingMessageId(aiMessageId);
+
+      // Call the AI API with streaming
       const response = await fetch('/api/ai-response', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -68,20 +72,46 @@ function FlowSpace() {
           conversationHistory: messages?.slice(-5) // Last 5 messages for context
         })
       });
-      
-      const aiResponse = await response.json();
-      
-      // Update the AI message with the actual response
-      updateMessage(aiMessage.id, {
-        content: aiResponse.content
-      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // Handle streaming response
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedContent = '';
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true });
+          accumulatedContent += chunk;
+          
+          // Update the AI message with accumulated content
+          updateMessage(aiMessageId, {
+            content: accumulatedContent
+          });
+        }
+      }
       
     } catch (error) {
       console.error('Error generating AI response:', error);
+      
+      // Update the AI message with error content
+      if (streamingMessageId) {
+        updateMessage(streamingMessageId, {
+          content: 'Sorry, I encountered an error while generating a response. Please try again.'
+        });
+      }
     } finally {
       setIsGenerating(false);
+      setStreamingMessageId(null);
     }
-  }, [createMessage, updateMessage, messages, isGenerating]);
+  }, [createMessage, updateMessage, messages, isGenerating, streamingMessageId]);
 
   const handleEditMessage = useCallback((messageId: string, newContent: string, newRole?: 'user' | 'assistant') => {
     try {

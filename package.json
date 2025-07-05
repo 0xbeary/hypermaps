@@ -1,10 +1,11 @@
 {
   "name": "hypergraph-ai-map",
   "version": "1.0.0",
-  "description": "",
+  "description": "Root for the hypermaps application.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "pnpm --filter hypermaps dev",
+    "build": "pnpm --filter hypermaps build"
   },
   "keywords": [],
   "author": "",

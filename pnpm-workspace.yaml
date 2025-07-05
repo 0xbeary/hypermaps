@@ -1,0 +1,10 @@
+packages:
+  - 'hypermaps'
+
+onlyBuiltDependencies:
+  - '@tailwindcss/oxide'
+  - bufferutil
+  - cbor-extract
+  - esbuild
+  - msgpackr-extract
+  - utf-8-validate 

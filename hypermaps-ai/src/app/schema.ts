@@ -2,6 +2,7 @@ import { Entity, Type } from '@graphprotocol/hypergraph';
 
 export class ChatMessage extends Entity.Class<ChatMessage>('ChatMessage')({
   content: Type.Text,
+  id: Type.Text,
   role: Type.Text, // "user" or "assistant"
   createdAt: Type.Date,
   

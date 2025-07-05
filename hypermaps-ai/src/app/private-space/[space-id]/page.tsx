@@ -15,6 +15,7 @@ import {
   useSpaces,
 } from '@graphprotocol/hypergraph-react';
 import { use, useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 
 interface PrivateSpacePageProps {
   params: Promise<{ 'space-id': string }>;
@@ -47,42 +48,63 @@ function PrivateSpace() {
 
   console.log(messages, 'msgs');
   
-  // Example messages creation
+  // Example messages creation with UUID
   const createExampleMessages = () => {
+    // Generate unique conversation ID
+    const newConversationId = `conv-${uuidv4()}`;
+    
     // Root message
     const rootMsg = createMessage({
+      id: uuidv4(),
       content: "What is quantum computing?",
       role: "user",
       createdAt: new Date(),
-      conversationId: "conv-1",
+      conversationId: newConversationId,
       parentMessageId: "",
       position: 0,
     });
 
-    // createConversation({
-    //   name: "asdasdasd",
-    //   messages: [rootMsg.id, ]
-    // })
-
     // AI response
     const aiResponse = createMessage({
-      content: "Quantum computing is a type of computation that harnesses quantum mechanics...",
+      id: uuidv4(),
+      content: "Quantum computing is a type of computation that harnesses quantum mechanics to process information in fundamentally different ways than classical computers. It uses quantum bits (qubits) that can exist in multiple states simultaneously, allowing for parallel processing of vast amounts of data.",
       role: "assistant", 
       createdAt: new Date(),
-      conversationId: "conv-1",
+      conversationId: newConversationId,
       parentMessageId: rootMsg.id,
-      position: 0,
+      position: 1,
     });
 
     // Follow-up question
     const followUp = createMessage({
+      id: uuidv4(),
       content: "Can you explain quantum entanglement?",
       role: "user",
       createdAt: new Date(), 
-      conversationId: "conv-1",
+      conversationId: newConversationId,
       parentMessageId: aiResponse.id,
-      position: 0,
+      position: 2,
     });
+
+    // Another AI response
+    const aiResponse2 = createMessage({
+      id: uuidv4(),
+      content: "Quantum entanglement is a phenomenon where two or more particles become connected in such a way that the quantum state of each particle cannot be described independently. When particles are entangled, measuring one particle instantly affects the state of the other, regardless of the distance between them.",
+      role: "assistant",
+      createdAt: new Date(),
+      conversationId: newConversationId,
+      parentMessageId: followUp.id,
+      position: 3,
+    });
+
+    console.log(`Created example conversation: ${newConversationId}`);
+  };
+
+  // Generate random conversation ID
+  const generateRandomConversation = () => {
+    const randomConvId = `conv-${uuidv4()}`;
+    setConversationId(randomConvId);
+    console.log(`Generated new conversation ID: ${randomConvId}`);
   };
 
   if (!ready) {
@@ -94,6 +116,7 @@ function PrivateSpace() {
     if (!messageContent.trim()) return;
     
     createMessage({
+      id: uuidv4(),
       content: messageContent,
       role: messageRole,
       createdAt: new Date(),
@@ -156,12 +179,22 @@ function PrivateSpace() {
           
           <label className="flex flex-col">
             <span className="text-sm font-bold">Conversation ID</span>
-            <input 
-              type="text" 
-              value={conversationId} 
-              onChange={(e) => setConversationId(e.target.value)}
-              placeholder="conv-1"
-            />
+            <div className="flex gap-2">
+              <input 
+                type="text" 
+                value={conversationId} 
+                onChange={(e) => setConversationId(e.target.value)}
+                placeholder="conv-1"
+                className="flex-1"
+              />
+              <button 
+                type="button"
+                onClick={generateRandomConversation}
+                className="bg-purple-500 text-white px-3 py-1 rounded text-sm"
+              >
+                🎲 Random
+              </button>
+            </div>
           </label>
           
           <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">
@@ -218,12 +251,20 @@ function PrivateSpace() {
         </ul>
       </div>
       
-      <button 
-        onClick={createExampleMessages}
-        className="mt-4 bg-gray-500 text-white px-4 py-2 rounded"
-      >
-        Create Example Messages
-      </button>
+      <div className="flex gap-2 mt-4">
+        <button 
+          onClick={createExampleMessages}
+          className="bg-gray-500 text-white px-4 py-2 rounded"
+        >
+          Create Example Messages
+        </button>
+        <button 
+          onClick={generateRandomConversation}
+          className="bg-purple-500 text-white px-4 py-2 rounded"
+        >
+          🎲 Generate Random Conversation ID
+        </button>
+      </div>
     </div>
   );
 } 

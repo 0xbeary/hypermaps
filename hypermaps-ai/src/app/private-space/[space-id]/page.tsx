@@ -1,6 +1,9 @@
 'use client';
 
-import { ChatMessage } from '../../schema';
+import { 
+  ChatMessage, 
+  // Conversation 
+} from '@/app/schema';
 import {
   HypergraphSpaceProvider,
   preparePublish,
@@ -11,14 +14,15 @@ import {
   useSpace,
   useSpaces,
 } from '@graphprotocol/hypergraph-react';
-import { useState } from 'react';
+import { use, useState } from 'react';
 
 interface PrivateSpacePageProps {
-  params: { 'space-id': string };
+  params: Promise<{ 'space-id': string }>;
 }
 
 export default function PrivateSpacePage({ params }: PrivateSpacePageProps) {
-  const spaceId = params['space-id'];
+  const resolvedParams = use(params);
+  const spaceId = resolvedParams['space-id'];
 
   return (
     <HypergraphSpaceProvider space={spaceId}>
@@ -29,15 +33,20 @@ export default function PrivateSpacePage({ params }: PrivateSpacePageProps) {
 
 function PrivateSpace() {
   const { name, ready } = useSpace({ mode: 'private' });
-  const { data: messages } = useQuery(ChatMessage, { mode: 'private' });
+  const { data: messages } = useQuery(ChatMessage, { mode: 'private', filter: {
+    conversationId: { is: "conv-1"}
+  } });
   const { data: publicSpaces } = useSpaces({ mode: 'public' });
   const [selectedSpace, setSelectedSpace] = useState<string>('');
   const createMessage = useCreateEntity(ChatMessage);
+  // const createConversation = useCreateEntity(Conversation)
   const [messageContent, setMessageContent] = useState('');
   const [messageRole, setMessageRole] = useState<'user' | 'assistant'>('user');
   const [conversationId, setConversationId] = useState('conv-1');
   const { getSmartSessionClient } = useHypergraphApp();
 
+  console.log(messages, 'msgs');
+  
   // Example messages creation
   const createExampleMessages = () => {
     // Root message
@@ -49,6 +58,11 @@ function PrivateSpace() {
       parentMessageId: "",
       position: 0,
     });
+
+    // createConversation({
+    //   name: "asdasdasd",
+    //   messages: [rootMsg.id, ]
+    // })
 
     // AI response
     const aiResponse = createMessage({

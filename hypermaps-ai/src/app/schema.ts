@@ -12,3 +12,8 @@ export class ChatMessage extends Entity.Class<ChatMessage>('ChatMessage')({
   conversationId: Type.Text,
   position: Type.Number,
 }) {}
+
+// export class Conversation extends Entity.Class<Conversation>('Conversation')({
+//   name: Type.Text,
+//   messages: Type.Relation(ChatMessage),
+// }) {}

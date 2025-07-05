@@ -1,35 +1,117 @@
 import { Handle, NodeProps, Position } from '@xyflow/react';
-import { memo } from 'react';
+import { memo, useState, useCallback } from 'react';
 
 export type AIMessageNodeData = {
   content: string;
   createdAt: Date;
   messageId: string;
   isGenerating?: boolean;
+  onEdit?: (messageId: string, newContent: string, newRole?: 'user' | 'assistant') => void;
+  onDelete?: (messageId: string) => void;
 };
 
 function AIMessageNode({ data }: NodeProps<AIMessageNodeData>) {
-  const { content, createdAt, messageId, isGenerating } = data;
+  const { content, createdAt, messageId, isGenerating, onEdit, onDelete } = data;
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(content);
+
+  const handleSave = useCallback(() => {
+    if (onEdit && editContent !== content) {
+      onEdit(messageId, editContent, 'assistant');
+    } 
+    setIsEditing(false);
+  }, [onEdit, messageId, editContent, content]);
+
+  const handleDelete = useCallback(() => {
+    if (onDelete) {
+      onDelete(messageId);
+    }
+  }, [onDelete, messageId]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && e.ctrlKey) {
+      handleSave();
+    }
+    if (e.key === 'Escape') {
+      setEditContent(content);
+      setIsEditing(false);
+    }
+  }, [handleSave, content]);
 
   return (
     <div className="px-4 py-3 bg-gray-900 border-2 border-green-400 rounded-lg min-w-[250px] max-w-[400px] shadow-lg shadow-green-400/20 hover:shadow-green-400/30 transition-shadow">
-      <div className="flex items-center gap-2 mb-2">
-        <div className="text-green-400 font-semibold text-sm">🤖 AI Assistant</div>
-        <div className="text-xs text-gray-500">
-          {createdAt.toLocaleTimeString()}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="text-green-400 font-semibold text-sm">🤖 AI Assistant</div>
+          <div className="text-xs text-gray-500">
+            {createdAt.toLocaleTimeString()}
+          </div>
         </div>
+        
+        {!isEditing && !isGenerating && (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setIsEditing(true)}
+              className="p-1 text-gray-400 hover:text-green-400 hover:bg-gray-800 rounded"
+              title="Edit message"
+            >
+              ✏️
+            </button>
+            <button
+              onClick={handleDelete}
+              className="p-1 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded"
+              title="Delete message"
+            >
+              🗑️
+            </button>
+          </div>
+        )}
       </div>
       
       <div className="mb-2">
-        {isGenerating || !content ? (
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <div className="animate-spin w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full"></div>
-            <span>Generating response...</span>
+        {isEditing ? (
+          <div>
+            <textarea
+              className="w-full resize-none border border-gray-600 bg-gray-800 text-white text-sm p-2 min-h-[60px] focus:outline-none focus:ring-2 focus:ring-green-400 rounded"
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              onKeyDown={handleKeyDown}
+              autoFocus
+            />
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={handleSave}
+                className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
+              >
+                Save (Ctrl+Enter)
+              </button>
+              <button
+                onClick={() => {
+                  setEditContent(content);
+                  setIsEditing(false);
+                }}
+                className="px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700"
+              >
+                Cancel (Esc)
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="text-sm text-gray-100 whitespace-pre-wrap">
-            {content}
-          </div>
+          <>
+            {isGenerating || !content ? (
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <div className="animate-spin w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full"></div>
+                <span>Generating response...</span>
+              </div>
+            ) : (
+              <div 
+                className="text-sm text-gray-100 whitespace-pre-wrap cursor-pointer hover:bg-gray-800 p-1 rounded"
+                onClick={() => setIsEditing(true)}
+              >
+                {content || 'Click to edit...'}
+              </div>
+            )}
+          </>
         )}
       </div>
       

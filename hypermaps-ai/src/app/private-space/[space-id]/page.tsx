@@ -9,6 +9,8 @@ import {
   preparePublish,
   publishOps,
   useCreateEntity,
+  useUpdateEntity,
+  useDeleteEntity,
   useHypergraphApp,
   useQuery,
   useSpace,
@@ -40,11 +42,18 @@ function PrivateSpace() {
   const { data: publicSpaces } = useSpaces({ mode: 'public' });
   const [selectedSpace, setSelectedSpace] = useState<string>('');
   const createMessage = useCreateEntity(ChatMessage);
+  const updateMessage = useUpdateEntity(ChatMessage);
+  const deleteMessage = useDeleteEntity();
   // const createConversation = useCreateEntity(Conversation)
   const [messageContent, setMessageContent] = useState('');
   const [messageRole, setMessageRole] = useState<'user' | 'assistant'>('user');
   const [conversationId, setConversationId] = useState('conv-1');
   const { getSmartSessionClient } = useHypergraphApp();
+
+  // Edit mode state
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState('');
+  const [editingRole, setEditingRole] = useState<'user' | 'assistant'>('user');
 
   console.log(messages, 'msgs');
   
@@ -128,6 +137,60 @@ function PrivateSpace() {
     setMessageContent('');
   };
 
+  const handleEdit = (message: ChatMessage) => {
+    setEditingMessageId(message.id);
+    setEditingContent(message.content);
+    setEditingRole(message.role as 'user' | 'assistant');
+  };
+
+  const handleSaveEdit = (messageId: string) => {
+    if (!editingContent.trim()) return;
+    
+    try {
+      updateMessage(messageId, {
+        content: editingContent,
+        role: editingRole,
+      });
+      
+      setEditingMessageId(null);
+      setEditingContent('');
+      setEditingRole('user');
+    } catch (error) {
+      console.error('Error updating message:', error);
+      alert('Error updating message');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingContent('');
+    setEditingRole('user');
+  };
+
+  const handleDelete = (messageId: string) => {
+    if (window.confirm('Are you sure you want to delete this message?')) {
+      try {
+        deleteMessage(messageId);
+        console.log(`Deleted message: ${messageId}`);
+      } catch (error) {
+        console.error('Error deleting message:', error);
+        alert('Error deleting message');
+      }
+    }
+  };
+
+  const handleRoleChange = (value: string) => {
+    if (value === 'user' || value === 'assistant') {
+      setMessageRole(value);
+    }
+  };
+
+  const handleEditRoleChange = (value: string) => {
+    if (value === 'user' || value === 'assistant') {
+      setEditingRole(value);
+    }
+  };
+
   const publishToPublicSpace = async (message: ChatMessage) => {
     if (!selectedSpace) {
       alert('No space selected');
@@ -171,7 +234,7 @@ function PrivateSpace() {
           
           <label className="flex flex-col">
             <span className="text-sm font-bold">Role</span>
-            <select value={messageRole} onChange={(e) => setMessageRole(e.target.value as 'user' | 'assistant')}>
+            <select value={messageRole} onChange={(e) => handleRoleChange(e.target.value)}>
               <option value="user">User</option>
               <option value="assistant">Assistant</option>
             </select>
@@ -217,7 +280,50 @@ function PrivateSpace() {
                 </span>
               </div>
               
-              <p className="mb-2">{message.content}</p>
+              {editingMessageId === message.id ? (
+                <div className="mb-2">
+                  <div className="flex flex-col gap-2">
+                    <label className="flex flex-col">
+                      <span className="text-sm font-bold">Edit Content</span>
+                      <textarea 
+                        value={editingContent} 
+                        onChange={(e) => setEditingContent(e.target.value)}
+                        rows={3}
+                        className="border p-2 rounded"
+                      />
+                    </label>
+                    
+                    <label className="flex flex-col">
+                      <span className="text-sm font-bold">Role</span>
+                      <select 
+                        value={editingRole} 
+                        onChange={(e) => handleEditRoleChange(e.target.value)}
+                        className="border p-2 rounded"
+                      >
+                        <option value="user">User</option>
+                        <option value="assistant">Assistant</option>
+                      </select>
+                    </label>
+                    
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => handleSaveEdit(message.id)}
+                        className="bg-green-500 text-white px-3 py-1 rounded text-sm"
+                      >
+                        ✓ Save
+                      </button>
+                      <button 
+                        onClick={handleCancelEdit}
+                        className="bg-gray-500 text-white px-3 py-1 rounded text-sm"
+                      >
+                        ✗ Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="mb-2">{message.content}</p>
+              )}
               
               <div className="text-xs text-gray-500 mb-2">
                 Conversation: {message.conversationId} | Position: {message.position}
@@ -226,7 +332,7 @@ function PrivateSpace() {
                 )}
               </div>
               
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <select 
                   value={selectedSpace} 
                   onChange={(e) => setSelectedSpace(e.target.value)}
@@ -245,6 +351,23 @@ function PrivateSpace() {
                 >
                   Publish
                 </button>
+                
+                {editingMessageId !== message.id && (
+                  <>
+                    <button 
+                      onClick={() => handleEdit(message)}
+                      className="bg-blue-500 text-white px-2 py-1 rounded text-sm"
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(message.id)}
+                      className="bg-red-500 text-white px-2 py-1 rounded text-sm"
+                    >
+                      🗑️ Delete
+                    </button>
+                  </>
+                )}
               </div>
             </li>
           ))}

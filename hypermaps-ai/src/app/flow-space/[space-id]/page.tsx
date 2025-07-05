@@ -5,6 +5,8 @@ import { ChatMessage } from '@/app/schema';
 import {
   HypergraphSpaceProvider,
   useCreateEntity,
+  useUpdateEntity,
+  useDeleteEntity,
   useQuery,
   useSpace,
 } from '@graphprotocol/hypergraph-react';
@@ -36,6 +38,8 @@ function FlowSpace() {
   });
   
   const createMessage = useCreateEntity(ChatMessage);
+  const updateMessage = useUpdateEntity(ChatMessage);
+  const deleteMessage = useDeleteEntity();
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleGenerateAIResponse = useCallback(async (userMessage: ChatMessage) => {
@@ -45,7 +49,7 @@ function FlowSpace() {
     
     try {
       // Create a placeholder AI message immediately
-      const aiMessage = await createMessage({
+      const aiMessage = createMessage({
         id: uuidv4(),
         content: "", // Empty content initially
         role: "assistant",
@@ -68,8 +72,7 @@ function FlowSpace() {
       const aiResponse = await response.json();
       
       // Update the AI message with the actual response
-      // You'll need to implement an update method in your hypergraph setup
-      await updateMessage(aiMessage.id, {
+      updateMessage(aiMessage.id, {
         content: aiResponse.content
       });
       
@@ -78,7 +81,34 @@ function FlowSpace() {
     } finally {
       setIsGenerating(false);
     }
-  }, [createMessage, messages, isGenerating]);
+  }, [createMessage, updateMessage, messages, isGenerating]);
+
+  const handleEditMessage = useCallback((messageId: string, newContent: string, newRole?: 'user' | 'assistant') => {
+    try {
+      const updateData: any = { content: newContent };
+      if (newRole) {
+        updateData.role = newRole;
+      }
+      
+      updateMessage(messageId, updateData);
+      console.log(`Updated message: ${messageId}`);
+    } catch (error) {
+      console.error('Error updating message:', error);
+      alert('Error updating message');
+    }
+  }, [updateMessage]);
+
+  const handleDeleteMessage = useCallback((messageId: string) => {
+    if (window.confirm('Are you sure you want to delete this message?')) {
+      try {
+        deleteMessage(messageId);
+        console.log(`Deleted message: ${messageId}`);
+      } catch (error) {
+        console.error('Error deleting message:', error);
+        alert('Error deleting message');
+      }
+    }
+  }, [deleteMessage]);
 
   if (!ready) {
     return (
@@ -104,6 +134,8 @@ function FlowSpace() {
           messages={messages || []} 
           conversationId="conv-1"
           onGenerateAIResponse={handleGenerateAIResponse}
+          onEditMessage={handleEditMessage}
+          onDeleteMessage={handleDeleteMessage}
         />
       </div>
     </div>

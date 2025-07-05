@@ -5,20 +5,27 @@ export interface UserMessageNodeData {
   content: string;
   createdAt: Date;
   messageId: string;
-  onEdit?: (messageId: string, newContent: string) => void;
+  onEdit?: (messageId: string, newContent: string, newRole?: 'user' | 'assistant') => void;
+  onDelete?: (messageId: string) => void;
 }
 
 function UserMessageNode({ data }: NodeProps<UserMessageNodeData>) {
-  const { content, createdAt, messageId, onEdit } = data;
+  const { content, createdAt, messageId, onEdit, onDelete } = data;
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(content);
 
   const handleSave = useCallback(() => {
     if (onEdit && editContent !== content) {
-      onEdit(messageId, editContent);
+      onEdit(messageId, editContent, 'user');
     } 
     setIsEditing(false);
   }, [onEdit, messageId, editContent, content]);
+
+  const handleDelete = useCallback(() => {
+    if (onDelete) {
+      onDelete(messageId);
+    }
+  }, [onDelete, messageId]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && e.ctrlKey) {
@@ -32,11 +39,32 @@ function UserMessageNode({ data }: NodeProps<UserMessageNodeData>) {
 
   return (
     <div className="px-4 py-3 bg-gray-900 border-2 border-gray-700 rounded-lg min-w-[250px] max-w-[400px] shadow-lg hover:shadow-xl transition-shadow">
-      <div className="flex items-center gap-2 mb-2">
-        <div className="text-blue-400 font-semibold text-sm">👤 User</div>
-        <div className="text-xs text-gray-400">
-          {createdAt.toLocaleTimeString()}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="text-blue-400 font-semibold text-sm">👤 User</div>
+          <div className="text-xs text-gray-400">
+            {createdAt.toLocaleTimeString()}
+          </div>
         </div>
+        
+        {!isEditing && (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setIsEditing(true)}
+              className="p-1 text-gray-400 hover:text-blue-400 hover:bg-gray-800 rounded"
+              title="Edit message"
+            >
+              ✏️
+            </button>
+            <button
+              onClick={handleDelete}
+              className="p-1 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded"
+              title="Delete message"
+            >
+              🗑️
+            </button>
+          </div>
+        )}
       </div>
       
       <div className="mb-2">

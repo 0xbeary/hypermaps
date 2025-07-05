@@ -35,30 +35,48 @@ type ChatFlowProps = {
   messages: ChatMessage[];
   conversationId: string;
   onGenerateAIResponse?: (userMessage: ChatMessage) => Promise<void>;
+  onEditMessage?: (messageId: string, newContent: string, newRole?: 'user' | 'assistant') => void;
+  onDeleteMessage?: (messageId: string) => void;
 };
 
 // Define a union type for all possible node data types
 type FlowNodeData = AIMessageNodeData | UserMessageNodeData;
 
-export default function ChatFlow({ messages, conversationId, onGenerateAIResponse }: ChatFlowProps) {
+export default function ChatFlow({ 
+  messages, 
+  conversationId, 
+  onGenerateAIResponse, 
+  onEditMessage, 
+  onDeleteMessage 
+}: ChatFlowProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const createMessage = useCreateEntity(ChatMessage);
 
-  // Handle editing user messages - MOVED BEFORE useMemo
-  const handleEditMessage = useCallback((messageId: string, newContent: string) => {
-    // In a real app, you'd update the message in hypergraph
-    // For now, we'll just update the node data locally
-    setNodes((nodes) =>
-      nodes.map((node) =>
-        node.id === messageId
-          ? { ...node, data: { ...node.data, content: newContent } }
-          : node
-      )
-    );
-  }, [setNodes]);
+  // Handle editing messages
+  const handleEditMessage = useCallback((messageId: string, newContent: string, newRole?: 'user' | 'assistant') => {
+    if (onEditMessage) {
+      onEditMessage(messageId, newContent, newRole);
+    } else {
+      // Fallback to local update if no handler provided
+      setNodes((nodes) =>
+        nodes.map((node) =>
+          node.id === messageId
+            ? { ...node, data: { ...node.data, content: newContent } }
+            : node
+        )
+      );
+    }
+  }, [onEditMessage, setNodes]);
+
+  // Handle deleting messages
+  const handleDeleteMessage = useCallback((messageId: string) => {
+    if (onDeleteMessage) {
+      onDeleteMessage(messageId);
+    }
+  }, [onDeleteMessage]);
 
   // Enhanced positioning logic for better visual flow
   const calculateNodePosition = (message: ChatMessage, allMessages: ChatMessage[]) => {
@@ -109,6 +127,7 @@ export default function ChatFlow({ messages, conversationId, onGenerateAIRespons
             createdAt: message.createdAt,
             messageId: message.id,
             onEdit: handleEditMessage,
+            onDelete: handleDeleteMessage,
           },
         };
         nodes.push(node);
@@ -122,6 +141,8 @@ export default function ChatFlow({ messages, conversationId, onGenerateAIRespons
             createdAt: message.createdAt,
             messageId: message.id,
             isGenerating: !message.content.trim(),
+            onEdit: handleEditMessage,
+            onDelete: handleDeleteMessage,
           },
         };
         nodes.push(node);
@@ -145,7 +166,7 @@ export default function ChatFlow({ messages, conversationId, onGenerateAIRespons
     });
 
     return { flowNodes: nodes, flowEdges: edges };
-  }, [messages, handleEditMessage]);
+  }, [messages, handleEditMessage, handleDeleteMessage]);
 
   // Update nodes and edges when messages change
   useEffect(() => {
@@ -155,7 +176,7 @@ export default function ChatFlow({ messages, conversationId, onGenerateAIRespons
 
   // Handle creating new user messages
   const handleCreateUserMessage = useCallback(async (content: string, parentId?: string) => {
-    const newMessage = await createMessage({
+    const newMessage = createMessage({
       id: uuidv4(),
       content,
       role: 'user',

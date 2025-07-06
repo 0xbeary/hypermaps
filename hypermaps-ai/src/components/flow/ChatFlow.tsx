@@ -453,6 +453,17 @@ export default function ChatFlow({
             </button>
           </div>
         </Panel>
+        <Panel position="top-right" className="bg-gray-900 text-white p-4 rounded-lg shadow-md border border-gray-700">
+          <button
+            onClick={() => {
+              // Publish functionality - currently does nothing
+              console.log('Publish clicked');
+            }}
+            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 font-medium"
+          >
+            📢 Publish
+          </button>
+        </Panel>
         <Panel position="bottom-right" className="bg-white p-2 rounded-lg shadow-md">
           <div className="flex gap-2">
             <button

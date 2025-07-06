@@ -4,8 +4,10 @@
   "description": "Root for the hypermaps application.",
   "main": "index.js",
   "scripts": {
-    "dev": "pnpm --filter hypermaps dev",
-    "build": "pnpm --filter hypermaps build"
+    "dev": "pnpm --filter hypermaps-ai dev",
+    "build": "pnpm --filter hypermaps-ai build",
+    "start": "pnpm --filter hypermaps-ai start",
+    "lint": "pnpm --filter hypermaps-ai lint"
   },
   "keywords": [],
   "author": "",

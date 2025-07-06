@@ -43,6 +43,7 @@ type ChatFlowProps = {
   onEditComment?: (commentId: string, newContent: string) => void;
   onDeleteComment?: (commentId: string) => void;
   onNodeMove?: (messageId: string, position: { x: number; y: number }) => void;
+  onCommentCreated?: (comment: any) => void;
 };
 
 export default function ChatFlow({ 
@@ -58,6 +59,7 @@ export default function ChatFlow({
   onEditComment,
   onDeleteComment,
   onNodeMove,
+  onCommentCreated,
 }: ChatFlowProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -175,7 +177,7 @@ export default function ChatFlow({
   }, [handleCreateUserMessage]);
 
   // Handle creating new comments
-  const handleCreateComment = useCallback((content: string, position?: { x: number, y: number }) => {
+  const handleCreateComment = useCallback(async (content: string, position?: { x: number, y: number }) => {
     const id = uuidv4();
     let x = position?.x || 200;
     let y = position?.y || 200;
@@ -192,16 +194,46 @@ export default function ChatFlow({
       y = calculatedPosition.y;
     }
 
-    createComment({
+    const payload = {
       id,
       content,
-      createdAt: new Date(),
+      createdAt: new Date().toISOString(),
       conversationId,
       position: messages.length + comments.length,
       x,
       y,
-    });
-  }, [createComment, conversationId, messages.length, comments.length, calculateNodePosition]);
+    };
+
+    try {
+      // Try Hypergraph first
+      await createComment(payload as unknown as Comment);
+    } catch (err: any) {
+      // Hypergraph space unavailable → fall back to Postgres
+      if (typeof err?.message === 'string' && err.message.includes('Space not found')) {
+        console.warn('Hypergraph space not ready – using Postgres fallback');
+        const response = await fetch('/api/comments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          if (onCommentCreated) {
+            // Pass the data from the API response to the parent
+            onCommentCreated(result.data);
+          }
+        } else {
+          // Log the detailed error from the API response body
+          const errorBody = await response.json();
+          console.error('Failed to save comment to fallback DB:', errorBody.message || errorBody.error || 'Unknown server error');
+        }
+
+      } else {
+        throw err; // unknown error – re-throw
+      }
+    }
+  }, [createComment, conversationId, messages.length, comments.length, calculateNodePosition, onCommentCreated]);
 
   // Convert ChatMessage entities and Comments to React Flow nodes and edges
   const { flowNodes, flowEdges } = useMemo(() => {
@@ -378,7 +410,7 @@ useEffect(() => {
   setNodes(flowNodes);
   setEdges(flowEdges);
   // We intentionally depend on the raw data, not the derived arrays,
-  // so dragging a node doesn’t immediately get overwritten.
+  // so dragging a node doesn't immediately get overwritten.
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [messages, comments, streamingContent, currentStreamingMessageId]);
 

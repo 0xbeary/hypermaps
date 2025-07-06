@@ -63,56 +63,56 @@ function PrivateSpace() {
     const newConversationId = `conv-${uuidv4()}`;
     
     // Root message
-    const rootMsg = createMessage({
-      id: uuidv4(),
-      content: "What is quantum computing?",
-      role: "user",
-      createdAt: new Date(),
-      conversationId: newConversationId,
-      parentMessageId: "",
-      position: 0,
-      x: 0,
-      y: 0,
-    });
+    // const rootMsg = createMessage({
+    //   id: uuidv4(),
+    //   content: "What is quantum computing?",
+    //   role: "user",
+    //   createdAt: new Date(),
+    //   conversationId: newConversationId,
+    //   parentMessageId: "",
+    //   position: 0,
+    //   x: 0,
+    //   y: 0,
+    // });
 
     // AI response
-    const aiResponse = createMessage({
-      id: uuidv4(),
-      content: "Quantum computing is a type of computation that harnesses quantum mechanics to process information in fundamentally different ways than classical computers. It uses quantum bits (qubits) that can exist in multiple states simultaneously, allowing for parallel processing of vast amounts of data.",
-      role: "assistant", 
-      createdAt: new Date(),
-      conversationId: newConversationId,
-      parentMessageId: rootMsg.id,
-      position: 1,
-      x: 0,
-      y: 0,
-    });
+    // const aiResponse = createMessage({
+    //   id: uuidv4(),
+    //   content: "Quantum computing is a type of computation that harnesses quantum mechanics to process information in fundamentally different ways than classical computers. It uses quantum bits (qubits) that can exist in multiple states simultaneously, allowing for parallel processing of vast amounts of data.",
+    //   role: "assistant", 
+    //   createdAt: new Date(),
+    //   conversationId: newConversationId,
+    //   parentMessageId: rootMsg.id,
+    //   position: 1,
+    //   x: 0,
+    //   y: 0,
+    // });
 
     // Follow-up question
-    const followUp = createMessage({
-      id: uuidv4(),
-      content: "Can you explain quantum entanglement?",
-      role: "user",
-      createdAt: new Date(), 
-      conversationId: newConversationId,
-      parentMessageId: aiResponse.id,
-      position: 2,
-      x: 0,
-      y: 0,
-    });
+    // const followUp = createMessage({
+    //   id: uuidv4(),
+    //   content: "Can you explain quantum entanglement?",
+    //   role: "user",
+    //   createdAt: new Date(), 
+    //   conversationId: newConversationId,
+    //   parentMessageId: aiResponse.id,
+    //   position: 2,
+    //   x: 0,
+    //   y: 0,
+    // });
 
     // Another AI response
-    const aiResponse2 = createMessage({
-      id: uuidv4(),
-      content: "Quantum entanglement is a phenomenon where two or more particles become connected in such a way that the quantum state of each particle cannot be described independently. When particles are entangled, measuring one particle instantly affects the state of the other, regardless of the distance between them.",
-      role: "assistant",
-      createdAt: new Date(),
-      conversationId: newConversationId,
-      parentMessageId: followUp.id,
-      position: 3,
-      x: 0,
-      y: 0,
-    });
+    // const aiResponse2 = createMessage({
+    //   id: uuidv4(),
+    //   content: "Quantum entanglement is a phenomenon where two or more particles become connected in such a way that the quantum state of each particle cannot be described independently. When particles are entangled, measuring one particle instantly affects the state of the other, regardless of the distance between them.",
+    //   role: "assistant",
+    //   createdAt: new Date(),
+    //   conversationId: newConversationId,
+    //   parentMessageId: followUp.id,
+    //   position: 3,
+    //   x: 0,
+    //   y: 0,
+    // });
 
     console.log(`Created example conversation: ${newConversationId}`);
   };

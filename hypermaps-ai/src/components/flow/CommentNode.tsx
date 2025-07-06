@@ -1,6 +1,6 @@
 'use client';
 
-import React, { memo, useState, useCallback, useRef, useEffect } from 'react';
+import React, { memo, useState, useCallback } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 
 export interface CommentNodeData {
@@ -11,32 +11,33 @@ export interface CommentNodeData {
   onDelete?: (messageId: string) => void;
 }
 
-function CommentNode({ data }: NodeProps<CommentNodeData>) {
+function CommentNode({ data }: NodeProps) {
+  const commentData = data as unknown as CommentNodeData;
   const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState(data.content);
+  const [editContent, setEditContent] = useState(commentData.content);
 
   const handleEdit = useCallback(() => {
     setIsEditing(true);
-    setEditContent(data.content);
-  }, [data.content]);
+    setEditContent(commentData.content);
+  }, [commentData.content]);
 
   const handleSave = useCallback(() => {
-    if (data.onEdit && editContent.trim()) {
-      data.onEdit(data.messageId, editContent.trim());
+    if (commentData.onEdit && editContent.trim()) {
+      commentData.onEdit(commentData.messageId, editContent.trim());
       setIsEditing(false);
     }
-  }, [data, editContent]);
+  }, [commentData, editContent]);
 
   const handleCancel = useCallback(() => {
     setIsEditing(false);
-    setEditContent(data.content);
-  }, [data.content]);
+    setEditContent(commentData.content);
+  }, [commentData.content]);
 
   const handleDelete = useCallback(() => {
-    if (data.onDelete && window.confirm('Are you sure you want to delete this comment?')) {
-      data.onDelete(data.messageId);
+    if (commentData.onDelete && window.confirm('Are you sure you want to delete this comment?')) {
+      commentData.onDelete(commentData.messageId);
     }
-  }, [data]);
+  }, [commentData]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && e.ctrlKey) {
@@ -56,7 +57,7 @@ function CommentNode({ data }: NodeProps<CommentNodeData>) {
       
       {/* Timestamp */}
       <div className="text-xs text-gray-500 mb-2">
-        {data.createdAt.toLocaleTimeString()}
+        {commentData.createdAt.toLocaleTimeString()}
       </div>
       
       {/* Content */}
@@ -73,7 +74,7 @@ function CommentNode({ data }: NodeProps<CommentNodeData>) {
           />
         ) : (
           <p className="text-gray-400 p-2 rounded backdrop-blur-sm">
-            {data.content}
+            {commentData.content}
           </p>
         )}
       </div>

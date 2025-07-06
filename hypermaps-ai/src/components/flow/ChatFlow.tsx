@@ -13,6 +13,7 @@ import {
   Panel,
   useReactFlow,
   Node,
+  Edge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -58,8 +59,8 @@ export default function ChatFlow({
   onDeleteComment,
   onNodeMove,
 }: ChatFlowProps) {
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node[]>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const createMessage = useCreateEntity(ChatMessage);
   const createComment = useCreateEntity(Comment);
   const { screenToFlowPosition } = useReactFlow();
@@ -93,7 +94,7 @@ export default function ChatFlow({
         await onGenerateAIResponse(userMessage);
       }
     }
-  }, [onGenerateAIResponse]); // Remove messages dependency
+  }, [onGenerateAIResponse, messages]);
 
   // Enhanced positioning logic for better visual flow
   const calculateNodePosition = useCallback((message: ChatMessage | Comment, allMessages: (ChatMessage | Comment)[], parentId?: string) => {
@@ -186,7 +187,7 @@ export default function ChatFlow({
         id,
         position: allItems.length,
       } as Comment;
-      const calculatedPosition = calculateNodePosition(tempComment as any, allItems as any);
+      const calculatedPosition = calculateNodePosition(tempComment, allItems);
       x = calculatedPosition.x + 300; // Offset comments to the right
       y = calculatedPosition.y;
     }
@@ -200,12 +201,12 @@ export default function ChatFlow({
       x,
       y,
     });
-  }, [createComment, conversationId, messages.length, comments.length]);
+  }, [createComment, conversationId, messages.length, comments.length, calculateNodePosition]);
 
   // Convert ChatMessage entities and Comments to React Flow nodes and edges
   const { flowNodes, flowEdges } = useMemo(() => {
     const nodes: Node[] = [];
-    const edges: any[] = [];
+    const edges: { id: string; source: string; target: string; type: string; animated: boolean; style: { stroke: string; strokeWidth: number } }[] = [];
 
     // Find the latest user message
     const userMessages = messages.filter(msg => msg.role === 'user');
@@ -358,13 +359,14 @@ export default function ChatFlow({
     onDeleteComment,
     isLoading,
     nodeToStartEditing,
-    handleDidMountInEditMode
+    handleDidMountInEditMode,
+    handleCreateAndEditUserMessage
   ]);
 
   // Update nodes and edges when messages change
   useEffect(() => {
     setNodes(flowNodes);
-    setEdges(flowEdges as any);
+    setEdges(flowEdges);
   }, [flowNodes, flowEdges, setNodes, setEdges]);
 
   // Handle connections between nodes

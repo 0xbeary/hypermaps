@@ -11,6 +11,7 @@ import {
 } from '@graphprotocol/hypergraph-react';
 import { ChatFlow } from '@/components/flow';
 import { StreamingChat, useStreamingChat } from '@/components/StreamingChat';
+import { ReactFlowProvider } from '@xyflow/react';
 
 interface FlowSpacePageProps {
   params: Promise<{ 'space-id': string }>;
@@ -99,6 +100,17 @@ function FlowSpace() {
     }
   }, [deleteMessage]);
 
+  const handleNodeMove = useCallback(
+    (messageId: string, position: { x: number; y: number }) => {
+      try {
+        updateMessage(messageId, { x: position.x, y: position.y });
+      } catch (error) {
+        console.error('Error updating node position:', error);
+      }
+    },
+    [updateMessage]
+  );
+
   if (!ready) {
     return <div>Loading...</div>;
   }
@@ -140,16 +152,19 @@ function FlowSpace() {
             existingMessages={messages || []}
           />
         ) : (
-          <ChatFlow 
-            messages={messages || []} 
-            conversationId="conv-1"
-            streamingContent={streamingContent}
-            currentStreamingMessageId={currentStreamingMessageId}
-            isLoading={isLoading}
-            onGenerateAIResponse={handleGenerateAIResponse}
-            onEditMessage={handleEditMessage}
-            onDeleteMessage={handleDeleteMessage}
-          />
+          <ReactFlowProvider>
+            <ChatFlow
+              messages={messages || []}
+              conversationId="conv-1"
+              streamingContent={streamingContent}
+              currentStreamingMessageId={currentStreamingMessageId}
+              isLoading={isLoading}
+              onGenerateAIResponse={handleGenerateAIResponse}
+              onEditMessage={handleEditMessage}
+              onDeleteMessage={handleDeleteMessage}
+              onNodeMove={handleNodeMove}
+            />
+          </ReactFlowProvider>
         )}
       </div>
     </div>

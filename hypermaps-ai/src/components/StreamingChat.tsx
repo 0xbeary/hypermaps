@@ -52,6 +52,13 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
       });
       
       try {
+        const position = existingMessages.length + 1;
+        const baseY = position * 160;
+        const baseX = 450; // AI message
+        const deterministicOffset = (message.id.charCodeAt(0) % 20) - 10;
+        const x = baseX + deterministicOffset;
+        const y = baseY + deterministicOffset;
+
         // Save to hypergraph when streaming completes
         const aiMessage = createMessage({
           id: message.id,
@@ -61,6 +68,8 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
           conversationId,
           parentMessageId: lastUserMessageRef.current || '',
           position: existingMessages.length + 1,
+          x,
+          y,
         });
         
         console.log('Created AI message in hypergraph with ID:', aiMessage.id);
@@ -203,6 +212,13 @@ export function StreamingChat({
     // Create user message in hypergraph first
     const userMessageId = uuidv4();
     try {
+      const position = existingMessages.length;
+      const baseY = position * 160;
+      const baseX = 50; // User message
+      const deterministicOffset = (userMessageId.charCodeAt(0) % 20) - 10;
+      const x = baseX + deterministicOffset;
+      const y = baseY + deterministicOffset;
+
       const userMessage = createMessage({
         id: userMessageId,
         content: input,
@@ -211,6 +227,8 @@ export function StreamingChat({
         conversationId,
         parentMessageId: '',
         position: existingMessages.length,
+        x,
+        y,
       });
       
       console.log('Saved user message to hypergraph:', userMessage);

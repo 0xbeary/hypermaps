@@ -12,6 +12,10 @@ export class ChatMessage extends Entity.Class<ChatMessage>('ChatMessage')({
   // Optional conversation grouping
   conversationId: Type.Text,
   position: Type.Number,
+
+  // Store x, y coordinates for flow view
+  x: Type.Number,
+  y: Type.Number,
 }) {}
 
 // export class Conversation extends Entity.Class<Conversation>('Conversation')({

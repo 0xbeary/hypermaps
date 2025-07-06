@@ -71,6 +71,8 @@ function PrivateSpace() {
       conversationId: newConversationId,
       parentMessageId: "",
       position: 0,
+      x: 0,
+      y: 0,
     });
 
     // AI response
@@ -82,6 +84,8 @@ function PrivateSpace() {
       conversationId: newConversationId,
       parentMessageId: rootMsg.id,
       position: 1,
+      x: 0,
+      y: 0,
     });
 
     // Follow-up question
@@ -93,6 +97,8 @@ function PrivateSpace() {
       conversationId: newConversationId,
       parentMessageId: aiResponse.id,
       position: 2,
+      x: 0,
+      y: 0,
     });
 
     // Another AI response
@@ -104,6 +110,8 @@ function PrivateSpace() {
       conversationId: newConversationId,
       parentMessageId: followUp.id,
       position: 3,
+      x: 0,
+      y: 0,
     });
 
     console.log(`Created example conversation: ${newConversationId}`);
@@ -132,6 +140,8 @@ function PrivateSpace() {
       conversationId: conversationId,
       parentMessageId: "",
       position: messages?.length || 0,
+      x: 0,
+      y: 0,
     });
     
     setMessageContent('');

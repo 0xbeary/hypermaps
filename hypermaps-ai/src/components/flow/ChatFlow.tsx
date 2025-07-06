@@ -11,6 +11,8 @@ import {
   useEdgesState,
   Connection,
   Panel,
+  useReactFlow,
+  Node,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -34,6 +36,7 @@ type ChatFlowProps = {
   onGenerateAIResponse?: (userMessage: ChatMessage) => Promise<void>;
   onEditMessage?: (messageId: string, newContent: string, newRole?: 'user' | 'assistant') => void;
   onDeleteMessage?: (messageId: string) => void;
+  onNodeMove?: (messageId: string, position: { x: number; y: number }) => void;
 };
 
 export default function ChatFlow({ 
@@ -44,11 +47,13 @@ export default function ChatFlow({
   isLoading = false,
   onGenerateAIResponse, 
   onEditMessage, 
-  onDeleteMessage 
+  onDeleteMessage,
+  onNodeMove,
 }: ChatFlowProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const createMessage = useCreateEntity(ChatMessage);
+  const { screenToFlowPosition } = useReactFlow();
 
   // Stabilize callback dependencies to prevent unnecessary recreations
   const handleEditMessage = useCallback((messageId: string, newContent: string, newRole?: 'user' | 'assistant') => {
@@ -108,7 +113,10 @@ export default function ChatFlow({
 
     // Create nodes for all existing messages in hypergraph
     messages.forEach((message) => {
-      const position = calculateNodePosition(message, messages);
+      const position =
+        message.x != null && message.y != null
+          ? { x: message.x, y: message.y }
+          : calculateNodePosition(message, messages);
       
       // Create node based on message role
       if (message.role === 'user') {
@@ -241,22 +249,37 @@ export default function ChatFlow({
   }, [flowNodes, flowEdges, setNodes, setEdges]);
 
   // Handle creating new user messages
-  const handleCreateUserMessage = useCallback(async (content: string, parentId?: string) => {
-    const newMessage = createMessage({
-      id: uuidv4(),
+  const handleCreateUserMessage = useCallback((content: string, parentId?: string, position?: { x: number, y: number }) => {
+    const id = uuidv4();
+    let x = position?.x;
+    let y = position?.y;
+
+    // If no position is provided, calculate a default one
+    if (x === undefined || y === undefined) {
+      const tempMessage = {
+        id,
+        role: 'user' as const,
+        position: messages.length,
+      } as ChatMessage;
+      const calculatedPosition = calculateNodePosition(tempMessage, [...messages, tempMessage]);
+      x = calculatedPosition.x;
+      y = calculatedPosition.y;
+    }
+
+    createMessage({
+      id,
       content,
       role: 'user',
       createdAt: new Date(),
       conversationId,
       parentMessageId: parentId || '',
       position: messages.length,
+      x,
+      y,
     });
 
-    // Automatically trigger AI response
-    if (onGenerateAIResponse) {
-      await onGenerateAIResponse(newMessage);
-    }
-  }, [createMessage, conversationId, messages.length, onGenerateAIResponse]);
+    // AI response is no longer automatically triggered.
+  }, [createMessage, conversationId, messages, calculateNodePosition]);
 
   // Handle connections between nodes
   const onConnect = useCallback((params: Connection) => {
@@ -275,15 +298,25 @@ export default function ChatFlow({
     }
   }, [nodes, setEdges]);
 
+  const handleNodeDragStop = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      if (onNodeMove) {
+        onNodeMove(node.id, node.position);
+      }
+    },
+    [onNodeMove]
+  );
+
   // Handle double-click to create new user message
   const handlePaneClick = useCallback((event: React.MouseEvent) => {
     if (event.detail === 2) { // Double-click
       const content = prompt('Enter your message:');
       if (content) {
-        handleCreateUserMessage(content);
+        const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+        handleCreateUserMessage(content, undefined, position);
       }
     }
-  }, [handleCreateUserMessage]);
+  }, [handleCreateUserMessage, screenToFlowPosition]);
 
   return (
     <div style={{ width: '100%', height: '100%' }}>
@@ -296,6 +329,7 @@ export default function ChatFlow({
         nodeTypes={nodeTypes}
         fitView
         onPaneClick={handlePaneClick}
+        onNodeDragStop={handleNodeDragStop}
         className="bg-gray-800"
       >
         <Background color="#555" gap={16} />
@@ -307,7 +341,7 @@ export default function ChatFlow({
             Double-click to create a new message
           </p>
           <button
-            onClick={() => handleCreateUserMessage("Hello! How can I help you today?")}
+            onClick={() => handleCreateUserMessage("ask me anything")}
             className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
           >
             + Add Message

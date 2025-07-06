@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { HypergraphAppProvider } from '@graphprotocol/hypergraph-react';
-import { mapping } from './mapping';
 import { Providers } from './providers';
 import { AuthWrapper } from './auth-wrapper';
+import { DataProvider } from './data-provider';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,11 +29,11 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
-          <HypergraphAppProvider mapping={mapping}>
+          <DataProvider>
             <AuthWrapper>
               {children}
             </AuthWrapper>
-          </HypergraphAppProvider>
+          </DataProvider>
         </Providers>
       </body>
     </html>

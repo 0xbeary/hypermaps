@@ -1,0 +1,1 @@
+export const USE_POSTGRES = process.env.NEXT_PUBLIC_USE_POSTGRES === 'true'; 

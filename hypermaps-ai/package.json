@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:push": "drizzle-kit push:pg"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.3.22",
@@ -18,8 +19,10 @@
     "@tanstack/react-query-devtools": "^5.81.5",
     "@xyflow/react": "^12.8.1",
     "ai": "^4.3.16",
+    "drizzle-orm": "^0.44.2",
     "effect": "^3.16.12",
     "next": "15.3.5",
+    "pg": "^8.16.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "uuid": "^11.1.0",
@@ -32,6 +35,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
+    "dotenv": "^17.0.1",
+    "drizzle-kit": "^0.31.4",
     "eslint": "^9",
     "eslint-config-next": "15.3.5",
     "tailwindcss": "^4",

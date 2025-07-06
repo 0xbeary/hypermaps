@@ -3,19 +3,17 @@
 import { useChat } from '@ai-sdk/react';
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { ChatMessage } from '@/app/schema';
-import { useCreateEntity, useUpdateEntity } from '@graphprotocol/hypergraph-react';
+import { useCreateEntity } from '@graphprotocol/hypergraph-react';
 import { v4 as uuidv4 } from 'uuid';
 
 // Enhanced hook that properly manages streaming state
 export function useStreamingChat(conversationId: string, existingMessages: ChatMessage[]) {
   const createMessage = useCreateEntity(ChatMessage);
-  const updateMessage = useUpdateEntity(ChatMessage);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [streamingContent, setStreamingContent] = useState<{ [messageId: string]: string }>({});
   const [currentStreamingMessageId, setCurrentStreamingMessageId] = useState<string | null>(null);
   const lastUserMessageRef = useRef<string | null>(null);
-  const streamingEntityCreated = useRef<boolean>(false);
 
   // Convert hypergraph messages to AI SDK format
   const convertToAIMessages = useCallback((messages: ChatMessage[]) => {
@@ -42,26 +40,18 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
       console.log('AI response finished:', message);
       
       try {
-        if (streamingEntityCreated.current && currentStreamingMessageId) {
-          // Update the existing streaming entity with final content
-          updateMessage(currentStreamingMessageId, {
-            content: message.content,
-          });
-          console.log('Updated streaming AI message:', currentStreamingMessageId);
-        } else {
-          // Fallback: create the message if entity wasn't created during streaming
-          const aiMessage = createMessage({
-            id: message.id,
-            content: message.content,
-            role: 'assistant',
-            createdAt: new Date(),
-            conversationId,
-            parentMessageId: lastUserMessageRef.current || '',
-            position: existingMessages.length + 1,
-          });
-          console.log('Created AI message:', aiMessage);
-        }
+        // Only save to hypergraph when streaming completes
+        const aiMessage = createMessage({
+          id: message.id,
+          content: message.content,
+          role: 'assistant',
+          createdAt: new Date(),
+          conversationId,
+          parentMessageId: lastUserMessageRef.current || '',
+          position: existingMessages.length + 1,
+        });
         
+        console.log('Created AI message in hypergraph:', aiMessage);
         setErrorMessage(null);
         setRetryCount(0);
         
@@ -69,14 +59,11 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
         setCurrentStreamingMessageId(null);
         setStreamingContent(prev => {
           const newContent = { ...prev };
-          if (currentStreamingMessageId) {
-            delete newContent[currentStreamingMessageId];
-          }
+          delete newContent[message.id];
           return newContent;
         });
-        streamingEntityCreated.current = false;
       } catch (error) {
-        console.error('Error finalizing AI message:', error);
+        console.error('Error saving AI message to hypergraph:', error);
         setErrorMessage('Failed to save message. Please try again.');
       }
     },
@@ -86,7 +73,6 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
       // Clean up streaming state on error
       setCurrentStreamingMessageId(null);
       setStreamingContent({});
-      streamingEntityCreated.current = false;
       
       // Set user-friendly error messages based on error type
       if (error.message.includes('rate limit')) {
@@ -103,61 +89,27 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
     },
   });
 
-  // Create AI message entity when streaming starts and track streaming content
+  // Track streaming content for flow view (no hypergraph operations during streaming)
   useEffect(() => {
     if (isLoading && messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
       if (lastMessage.role === 'assistant') {
+        // Set streaming message ID for flow view tracking
+        if (!currentStreamingMessageId) {
+          setCurrentStreamingMessageId(lastMessage.id);
+          console.log('Started tracking streaming for message:', lastMessage.id);
+        }
         
-                 // Create entity immediately when streaming starts (first time we see an AI message)
-         if (!streamingEntityCreated.current && lastUserMessageRef.current) {
-           const aiMessageId = lastMessage.id;
-           setCurrentStreamingMessageId(aiMessageId);
-           
-           try {
-             const aiMessage = createMessage({
-               id: aiMessageId,
-               content: lastMessage.content || '',
-               role: 'assistant',
-               createdAt: new Date(),
-               conversationId,
-               parentMessageId: lastUserMessageRef.current,
-               position: existingMessages.length + 1,
-             });
-             
-             streamingEntityCreated.current = true;
-             console.log('Created streaming AI message entity:', aiMessage, 'with ID:', aiMessageId);
-           } catch (error) {
-             console.error('Error creating streaming AI message entity:', error);
-             // Reset state on creation failure
-             streamingEntityCreated.current = false;
-             setCurrentStreamingMessageId(null);
-           }
-         }
-        
-                 // Update streaming content
-         if (lastMessage.content && currentStreamingMessageId) {
-           setStreamingContent(prev => ({
-             ...prev,
-             [currentStreamingMessageId]: lastMessage.content
-           }));
-           
-           // Update the entity with current streaming content
-           if (streamingEntityCreated.current && currentStreamingMessageId) {
-             try {
-               updateMessage(currentStreamingMessageId, {
-                 content: lastMessage.content,
-               });
-               console.log('Updated streaming message:', currentStreamingMessageId, 'with content length:', lastMessage.content.length);
-             } catch (error) {
-               console.error('Error updating streaming content for ID:', currentStreamingMessageId, 'Error:', error);
-               // Don't reset state here as it might be a temporary issue
-             }
-           }
-         }
+        // Update streaming content for flow view (no hypergraph updates)
+        if (lastMessage.content) {
+          setStreamingContent(prev => ({
+            ...prev,
+            [lastMessage.id]: lastMessage.content
+          }));
+        }
       }
     }
-  }, [messages, isLoading, createMessage, updateMessage, conversationId, existingMessages.length, currentStreamingMessageId]);
+  }, [messages, isLoading, currentStreamingMessageId]);
 
   const generateAIResponse = useCallback(async (userMessage: ChatMessage) => {
     if (isLoading) return;
@@ -167,7 +119,8 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
       // Store the user message ID for parentMessageId
       lastUserMessageRef.current = userMessage.id;
       // Reset streaming state
-      streamingEntityCreated.current = false;
+      setCurrentStreamingMessageId(null);
+      setStreamingContent({});
       
       await append({
         role: 'user',

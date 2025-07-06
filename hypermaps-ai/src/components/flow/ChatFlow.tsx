@@ -50,22 +50,32 @@ export default function ChatFlow({
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const createMessage = useCreateEntity(ChatMessage);
 
-  // Handle editing messages
+  // Stabilize callback dependencies to prevent unnecessary recreations
   const handleEditMessage = useCallback((messageId: string, newContent: string, newRole?: 'user' | 'assistant') => {
     if (onEditMessage) {
       onEditMessage(messageId, newContent, newRole);
     }
   }, [onEditMessage]);
 
-  // Handle deleting messages
   const handleDeleteMessage = useCallback((messageId: string) => {
     if (onDeleteMessage) {
       onDeleteMessage(messageId);
     }
   }, [onDeleteMessage]);
 
+  // Stabilize the generate response callback by removing messages dependency
+  const handleGenerateResponse = useCallback(async (messageId: string) => {
+    if (onGenerateAIResponse) {
+      // Find the message within the callback to avoid dependency on messages array
+      const userMessage = messages.find(msg => msg.id === messageId);
+      if (userMessage) {
+        await onGenerateAIResponse(userMessage);
+      }
+    }
+  }, [onGenerateAIResponse]); // Remove messages dependency
+
   // Enhanced positioning logic for better visual flow
-  const calculateNodePosition = (message: ChatMessage, allMessages: ChatMessage[]) => {
+  const calculateNodePosition = useCallback((message: ChatMessage, allMessages: ChatMessage[]) => {
     const isUser = message.role === 'user';
     
     // Sort messages by position to ensure consistent ordering
@@ -83,15 +93,7 @@ export default function ChatFlow({
       x: baseX + deterministicOffset,
       y: baseY + deterministicOffset,
     };
-  };
-
-  // Handle generating AI response for a specific user message
-  const handleGenerateResponse = useCallback(async (messageId: string) => {
-    const userMessage = messages.find(msg => msg.id === messageId);
-    if (userMessage && onGenerateAIResponse) {
-      await onGenerateAIResponse(userMessage);
-    }
-  }, [messages, onGenerateAIResponse]);
+  }, []);
 
   // Convert ChatMessage entities to React Flow nodes and edges
   const { flowNodes, flowEdges } = useMemo(() => {
@@ -104,6 +106,7 @@ export default function ChatFlow({
     const userMessages = messages.filter(msg => msg.role === 'user');
     const latestUserMessage = userMessages.length > 0 ? userMessages[userMessages.length - 1] : null;
 
+    // Create nodes for all existing messages
     messages.forEach((message) => {
       const position = calculateNodePosition(message, messages);
       
@@ -162,8 +165,61 @@ export default function ChatFlow({
       }
     });
 
+    // Add a temporary streaming node if we're currently streaming and don't have the message in hypergraph yet
+    if (currentStreamingMessageId && !messages.find(m => m.id === currentStreamingMessageId)) {
+      const streamingPosition = calculateNodePosition(
+        { 
+          id: currentStreamingMessageId, 
+          role: 'assistant' as const,
+          position: messages.length,
+        } as ChatMessage, 
+        messages
+      );
+      
+      const streamingNode = {
+        id: currentStreamingMessageId,
+        type: 'aiMessage',
+        position: streamingPosition,
+        data: {
+          content: '',
+          createdAt: new Date(),
+          messageId: currentStreamingMessageId,
+          isGenerating: true,
+          streamingContent: streamingContent[currentStreamingMessageId] || '',
+          onEdit: handleEditMessage,
+          onDelete: handleDeleteMessage,
+        },
+      };
+      nodes.push(streamingNode);
+
+      // Create edge from the latest user message to the streaming node
+      if (latestUserMessage) {
+        const streamingEdge = {
+          id: `edge-${latestUserMessage.id}-${currentStreamingMessageId}`,
+          source: latestUserMessage.id,
+          target: currentStreamingMessageId,
+          type: 'smoothstep',
+          animated: true,
+          style: {
+            stroke: '#10b981',
+            strokeWidth: 2,
+          },
+        };
+        edges.push(streamingEdge);
+      }
+    }
+
     return { flowNodes: nodes, flowEdges: edges };
-  }, [messages, streamingContent, currentStreamingMessageId, handleEditMessage, handleDeleteMessage, handleGenerateResponse]);
+  }, [
+    messages, 
+    streamingContent, 
+    currentStreamingMessageId, 
+    calculateNodePosition,
+    handleEditMessage, 
+    handleDeleteMessage, 
+    handleGenerateResponse,
+    isLoading
+  ]);
 
   // Update nodes and edges when messages change
   useEffect(() => {

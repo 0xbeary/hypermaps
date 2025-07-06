@@ -367,7 +367,10 @@ export default function ChatFlow({
   useEffect(() => {
     setNodes(flowNodes);
     setEdges(flowEdges);
-  }, [flowNodes, flowEdges, setNodes, setEdges]);
+    // We intentionally depend on the raw data, not the derived arrays,
+    // so dragging a node doesn't immediately get overwritten.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, comments, streamingContent, currentStreamingMessageId]);
 
   // Handle connections between nodes
   const onConnect = useCallback((params: Connection) => {

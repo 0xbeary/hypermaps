@@ -44,7 +44,6 @@ function PrivateSpace() {
   const createMessage = useCreateEntity(ChatMessage);
   const updateMessage = useUpdateEntity(ChatMessage);
   const deleteMessage = useDeleteEntity();
-  // const createConversation = useCreateEntity(Conversation)
   const [messageContent, setMessageContent] = useState('');
   const [messageRole, setMessageRole] = useState<'user' | 'assistant'>('user');
   const [conversationId, setConversationId] = useState('conv-1');
@@ -58,64 +57,6 @@ function PrivateSpace() {
   console.log(messages, 'msgs');
   
   // Example messages creation with UUID
-  const createExampleMessages = () => {
-    // Generate unique conversation ID
-    const newConversationId = `conv-${uuidv4()}`;
-    
-    // Root message
-    // const rootMsg = createMessage({
-    //   id: uuidv4(),
-    //   content: "What is quantum computing?",
-    //   role: "user",
-    //   createdAt: new Date(),
-    //   conversationId: newConversationId,
-    //   parentMessageId: "",
-    //   position: 0,
-    //   x: 0,
-    //   y: 0,
-    // });
-
-    // AI response
-    // const aiResponse = createMessage({
-    //   id: uuidv4(),
-    //   content: "Quantum computing is a type of computation that harnesses quantum mechanics to process information in fundamentally different ways than classical computers. It uses quantum bits (qubits) that can exist in multiple states simultaneously, allowing for parallel processing of vast amounts of data.",
-    //   role: "assistant", 
-    //   createdAt: new Date(),
-    //   conversationId: newConversationId,
-    //   parentMessageId: rootMsg.id,
-    //   position: 1,
-    //   x: 0,
-    //   y: 0,
-    // });
-
-    // Follow-up question
-    // const followUp = createMessage({
-    //   id: uuidv4(),
-    //   content: "Can you explain quantum entanglement?",
-    //   role: "user",
-    //   createdAt: new Date(), 
-    //   conversationId: newConversationId,
-    //   parentMessageId: aiResponse.id,
-    //   position: 2,
-    //   x: 0,
-    //   y: 0,
-    // });
-
-    // Another AI response
-    // const aiResponse2 = createMessage({
-    //   id: uuidv4(),
-    //   content: "Quantum entanglement is a phenomenon where two or more particles become connected in such a way that the quantum state of each particle cannot be described independently. When particles are entangled, measuring one particle instantly affects the state of the other, regardless of the distance between them.",
-    //   role: "assistant",
-    //   createdAt: new Date(),
-    //   conversationId: newConversationId,
-    //   parentMessageId: followUp.id,
-    //   position: 3,
-    //   x: 0,
-    //   y: 0,
-    // });
-
-    console.log(`Created example conversation: ${newConversationId}`);
-  };
 
   // Generate random conversation ID
   const generateRandomConversation = () => {
@@ -125,7 +66,14 @@ function PrivateSpace() {
   };
 
   if (!ready) {
-    return <div>Loading...</div>;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading private space...</p>
+        </div>
+      </div>
+    );
   }
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -189,17 +137,7 @@ function PrivateSpace() {
     }
   };
 
-  const handleRoleChange = (value: string) => {
-    if (value === 'user' || value === 'assistant') {
-      setMessageRole(value);
-    }
-  };
-
-  const handleEditRoleChange = (value: string) => {
-    if (value === 'user' || value === 'assistant') {
-      setEditingRole(value);
-    }
-  };
+ 
 
   const publishToPublicSpace = async (message: ChatMessage) => {
     if (!selectedSpace) {
@@ -227,176 +165,196 @@ function PrivateSpace() {
   };
 
   return (
-    <div className="flex flex-col h-screen">
-      <h1 className="text-2xl font-bold">{name}</h1>
-      
-      <form onSubmit={handleSubmit} className="mb-4">
-        <div className="flex flex-col gap-2">
-          <label className="flex flex-col">
-            <span className="text-sm font-bold">Message Content</span>
-            <textarea 
-              value={messageContent} 
-              onChange={(e) => setMessageContent(e.target.value)}
-              rows={3}
-              placeholder="Enter your message..."
-            />
-          </label>
-          
-          <label className="flex flex-col">
-            <span className="text-sm font-bold">Role</span>
-            <select value={messageRole} onChange={(e) => handleRoleChange(e.target.value)}>
-              <option value="user">User</option>
-              <option value="assistant">Assistant</option>
-            </select>
-          </label>
-          
-          <label className="flex flex-col">
-            <span className="text-sm font-bold">Conversation ID</span>
-            <div className="flex gap-2">
-              <input 
-                type="text" 
-                value={conversationId} 
-                onChange={(e) => setConversationId(e.target.value)}
-                placeholder="conv-1"
-                className="flex-1"
-              />
-              <button 
-                type="button"
-                onClick={generateRandomConversation}
-                className="bg-purple-500 text-white px-3 py-1 rounded text-sm"
-              >
-                🎲 Random
-              </button>
-            </div>
-          </label>
-          
-          <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">
-            Create Message
-          </button>
-        </div>
-      </form>
-
-      <div className="flex-1 overflow-y-auto">
-        <h2 className="text-lg font-semibold mb-2">Messages</h2>
-        <ul className="space-y-2">
-          {messages?.map((message) => (
-            <li key={message.id} className="border p-3 rounded">
-              <div className="flex justify-between items-start mb-2">
-                <span className={`text-sm font-bold ${message.role === 'user' ? 'text-blue-600' : 'text-green-600'}`}>
-                  {message.role === 'user' ? '👤 User' : '🤖 Assistant'}
-                </span>
-                <span className="text-xs text-gray-500">
-                  {message.createdAt.toLocaleString()}
-                </span>
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
+      <div className="container mx-auto px-6 py-8">
+        {/* Header */}
+        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 mb-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mr-4">
+                <span className="text-2xl">🔒</span>
               </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">{name}</h1>
+                <p className="text-gray-600">Private Conversation Space</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Create Message Form */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100 sticky top-8">
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Create Message</h2>
               
-              {editingMessageId === message.id ? (
-                <div className="mb-2">
-                  <div className="flex flex-col gap-2">
-                    <label className="flex flex-col">
-                      <span className="text-sm font-bold">Edit Content</span>
-                      <textarea 
-                        value={editingContent} 
-                        onChange={(e) => setEditingContent(e.target.value)}
-                        rows={3}
-                        className="border p-2 rounded"
-                      />
-                    </label>
-                    
-                    <label className="flex flex-col">
-                      <span className="text-sm font-bold">Role</span>
-                      <select 
-                        value={editingRole} 
-                        onChange={(e) => handleEditRoleChange(e.target.value)}
-                        className="border p-2 rounded"
-                      >
-                        <option value="user">User</option>
-                        <option value="assistant">Assistant</option>
-                      </select>
-                    </label>
-                    
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={() => handleSaveEdit(message.id)}
-                        className="bg-green-500 text-white px-3 py-1 rounded text-sm"
-                      >
-                        ✓ Save
-                      </button>
-                      <button 
-                        onClick={handleCancelEdit}
-                        className="bg-gray-500 text-white px-3 py-1 rounded text-sm"
-                      >
-                        ✗ Cancel
-                      </button>
-                    </div>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Message Content
+                  </label>
+                  <textarea 
+                    value={messageContent} 
+                    onChange={(e) => setMessageContent(e.target.value)}
+                    rows={4}
+                    placeholder="Enter your message..."
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Role
+                  </label>
+                  <select 
+                    value={messageRole} 
+                    onChange={(e) => setMessageRole(e.target.value as 'user' | 'assistant')}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="user">👤 User</option>
+                    <option value="assistant">🤖 Assistant</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Conversation ID
+                  </label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={conversationId} 
+                      onChange={(e) => setConversationId(e.target.value)}
+                      placeholder="conv-1"
+                      className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                    <button 
+                      type="button"
+                      onClick={generateRandomConversation}
+                      className="px-4 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors"
+                    >
+                      🎲
+                    </button>
                   </div>
                 </div>
-              ) : (
-                <p className="mb-2">{message.content}</p>
-              )}
-              
-              <div className="text-xs text-gray-500 mb-2">
-                Conversation: {message.conversationId} | Position: {message.position}
-                {message.parentMessageId && (
-                  <span> | Parent: {message.parentMessageId.slice(0, 8)}...</span>
-                )}
-              </div>
-              
-              <div className="flex gap-2 flex-wrap">
-                <select 
-                  value={selectedSpace} 
-                  onChange={(e) => setSelectedSpace(e.target.value)}
-                  className="text-sm"
-                >
-                  <option value="">Select a space</option>
-                  {publicSpaces?.map((space) => (
-                    <option key={space.id} value={space.id}>
-                      {space.name}
-                    </option>
-                  ))}
-                </select>
-                <button 
-                  onClick={() => publishToPublicSpace(message)}
-                  className="bg-green-500 text-white px-2 py-1 rounded text-sm"
-                >
-                  Publish
-                </button>
                 
-                {editingMessageId !== message.id && (
-                  <>
-                    <button 
-                      onClick={() => handleEdit(message)}
-                      className="bg-blue-500 text-white px-2 py-1 rounded text-sm"
-                    >
-                      ✏️ Edit
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(message.id)}
-                      className="bg-red-500 text-white px-2 py-1 rounded text-sm"
-                    >
-                      🗑️ Delete
-                    </button>
-                  </>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-      
-      <div className="flex gap-2 mt-4">
-        <button 
-          onClick={createExampleMessages}
-          className="bg-gray-500 text-white px-4 py-2 rounded"
-        >
-          Create Example Messages
-        </button>
-        <button 
-          onClick={generateRandomConversation}
-          className="bg-purple-500 text-white px-4 py-2 rounded"
-        >
-          🎲 Generate Random Conversation ID
-        </button>
+                <button 
+                  type="submit" 
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold py-3 px-6 rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+                >
+                  Create Message
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {/* Messages List */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Messages</h2>
+              
+              {messages && messages.length > 0 ? (
+                <div className="space-y-4">
+                  {messages.map((message) => (
+                    <div key={message.id} className={`p-4 rounded-xl border-l-4 ${
+                      message.role === 'user' 
+                        ? 'bg-blue-50 border-blue-400' 
+                        : 'bg-green-50 border-green-400'
+                    }`}>
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center">
+                          <span className={`text-sm font-bold ${
+                            message.role === 'user' ? 'text-blue-600' : 'text-green-600'
+                          }`}>
+                            {message.role === 'user' ? '👤 User' : '🤖 Assistant'}
+                          </span>
+                          <span className="ml-3 text-xs text-gray-500">
+                            {message.createdAt.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {editingMessageId === message.id ? (
+                        <div className="space-y-3">
+                          <textarea 
+                            value={editingContent} 
+                            onChange={(e) => setEditingContent(e.target.value)}
+                            rows={3}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          />
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => handleSaveEdit(message.id)}
+                              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                            >
+                              ✓ Save
+                            </button>
+                            <button 
+                              onClick={handleCancelEdit}
+                              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
+                            >
+                              ✗ Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-gray-800 mb-3 leading-relaxed">{message.content}</p>
+                          
+                          <div className="flex flex-wrap gap-2 items-center">
+                            <select 
+                              value={selectedSpace} 
+                              onChange={(e) => setSelectedSpace(e.target.value)}
+                              className="text-sm px-3 py-1 border border-gray-300 rounded-lg"
+                            >
+                              <option value="">Select space to publish</option>
+                              {publicSpaces?.map((space) => (
+                                <option key={space.id} value={space.id}>
+                                  {space.name}
+                                </option>
+                              ))}
+                            </select>
+                            <button 
+                              onClick={() => publishToPublicSpace(message)}
+                              className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                            >
+                              📤 Publish
+                            </button>
+                            <button 
+                              onClick={() => handleEdit(message)}
+                              className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                            >
+                              ✏️ Edit
+                            </button>
+                            <button 
+                              onClick={() => handleDelete(message.id)}
+                              className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                            >
+                              🗑️ Delete
+                            </button>
+                          </div>
+                          
+                          <div className="text-xs text-gray-500 mt-2 flex gap-4">
+                            <span>Conv: {message.conversationId}</span>
+                            <span>Pos: {message.position}</span>
+                            {message.parentMessageId && (
+                              <span>Parent: {message.parentMessageId.slice(0, 8)}...</span>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  <span className="text-4xl mb-4 block">💬</span>
+                  <p>No messages yet. Create your first message to get started!</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

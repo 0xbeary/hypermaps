@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Hypergraph AI Map",
-  description: "AI-powered hypergraph mapping application",
+  title: "Hypermaps",
+  description: "Revolutionary collaborative AI conversation mapping platform",
 };
 
 export default function RootLayout({

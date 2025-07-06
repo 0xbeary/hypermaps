@@ -9,7 +9,7 @@ export interface AIMessageNodeData extends Record<string, unknown> {
   streamingContent?: string;
   onEdit?: (messageId: string, newContent: string, newRole?: 'user' | 'assistant') => void;
   onDelete?: (messageId: string) => void;
-  onCreateUserMessage?: (content: string, parentId?: string) => void;
+  onCreateUserMessage?: (parentId: string) => void;
 }
 
 function AIMessageNode({ data }: NodeProps) {
@@ -52,10 +52,7 @@ function AIMessageNode({ data }: NodeProps) {
 
   const handleCreateUserMessage = useCallback(() => {
     if (onCreateUserMessage) {
-      const userInput = prompt('Enter your follow-up message:');
-      if (userInput && userInput.trim()) {
-        onCreateUserMessage(userInput.trim(), messageId);
-      }
+      onCreateUserMessage(messageId);
     }
   }, [onCreateUserMessage, messageId]);
 

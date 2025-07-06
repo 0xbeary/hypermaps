@@ -1,5 +1,5 @@
 import { Handle, NodeProps, Position } from '@xyflow/react';
-import { memo, useState, useCallback } from 'react';
+import { memo, useState, useCallback, useRef, useEffect } from 'react';
 
 export interface UserMessageNodeData extends Record<string, unknown> {
   content: string;
@@ -10,12 +10,22 @@ export interface UserMessageNodeData extends Record<string, unknown> {
   onEdit?: (messageId: string, newContent: string, newRole?: 'user' | 'assistant') => void;
   onDelete?: (messageId: string) => void;
   onGenerateResponse?: (messageId: string) => Promise<void>;
+  startInEditMode?: boolean;
+  onDidMountInEditMode?: (messageId: string) => void;
 }
 
 function UserMessageNode({ data }: NodeProps) {
-  const { content, createdAt, messageId, isLatestUserMessage, isLoading = false, onEdit, onDelete, onGenerateResponse } = data as UserMessageNodeData;
-  const [isEditing, setIsEditing] = useState(false);
+  const { content, createdAt, messageId, isLatestUserMessage, isLoading = false, onEdit, onDelete, onGenerateResponse, startInEditMode, onDidMountInEditMode } = data as UserMessageNodeData;
+  const [isEditing, setIsEditing] = useState(startInEditMode || false);
   const [editContent, setEditContent] = useState(content);
+  const didMountRef = useRef(false);
+
+  useEffect(() => {
+    if (startInEditMode && onDidMountInEditMode && !didMountRef.current) {
+      onDidMountInEditMode(messageId);
+      didMountRef.current = true;
+    }
+  }, [startInEditMode, onDidMountInEditMode, messageId]);
 
   const handleSave = useCallback(() => {
     if (onEdit && editContent !== content) {

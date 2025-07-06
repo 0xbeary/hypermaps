@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { memo, useState, useCallback, useRef, useEffect } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 
-interface CommentNodeData {
+export interface CommentNodeData {
   content: string;
   createdAt: Date;
   messageId: string;
@@ -11,7 +11,7 @@ interface CommentNodeData {
   onDelete?: (messageId: string) => void;
 }
 
-export default function CommentNode({ data }: NodeProps<CommentNodeData>) {
+function CommentNode({ data }: NodeProps<CommentNodeData>) {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(data.content);
 
@@ -128,4 +128,6 @@ export default function CommentNode({ data }: NodeProps<CommentNodeData>) {
       />
     </div>
   );
-} 
+}
+
+export default memo(CommentNode); 

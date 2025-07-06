@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import {
   ReactFlow,
   Background,
@@ -9,12 +9,8 @@ import {
   addEdge,
   useNodesState,
   useEdgesState,
-  Node,
-  Edge,
   Connection,
   Panel,
-  NodeChange,
-  EdgeChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -23,8 +19,6 @@ import AIMessageNode from './AIMessageNode';
 import { ChatMessage } from '@/app/schema';
 import { useCreateEntity } from '@graphprotocol/hypergraph-react';
 import { v4 as uuidv4 } from 'uuid';
-import { AIMessageNodeData } from './AIMessageNode';
-import { UserMessageNodeData } from './UserMessageNode';
 
 const nodeTypes = {
   userMessage: UserMessageNode,
@@ -36,44 +30,32 @@ type ChatFlowProps = {
   conversationId: string;
   streamingContent?: { [messageId: string]: string };
   currentStreamingMessageId?: string | null;
+  isLoading?: boolean;
   onGenerateAIResponse?: (userMessage: ChatMessage) => Promise<void>;
   onEditMessage?: (messageId: string, newContent: string, newRole?: 'user' | 'assistant') => void;
   onDeleteMessage?: (messageId: string) => void;
 };
 
-// Define a union type for all possible node data types
-type FlowNodeData = AIMessageNodeData | UserMessageNodeData;
-
 export default function ChatFlow({ 
   messages, 
   conversationId, 
-  streamingContent,
-  currentStreamingMessageId,
+  streamingContent = {},
+  currentStreamingMessageId = null,
+  isLoading = false,
   onGenerateAIResponse, 
   onEditMessage, 
   onDeleteMessage 
 }: ChatFlowProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [selectedNode, setSelectedNode] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
   const createMessage = useCreateEntity(ChatMessage);
 
   // Handle editing messages
   const handleEditMessage = useCallback((messageId: string, newContent: string, newRole?: 'user' | 'assistant') => {
     if (onEditMessage) {
       onEditMessage(messageId, newContent, newRole);
-    } else {
-      // Fallback to local update if no handler provided
-      setNodes((nodes) =>
-        nodes.map((node) =>
-          node.id === messageId
-            ? { ...node, data: { ...node.data, content: newContent } }
-            : node
-        )
-      );
     }
-  }, [onEditMessage, setNodes]);
+  }, [onEditMessage]);
 
   // Handle deleting messages
   const handleDeleteMessage = useCallback((messageId: string) => {
@@ -86,29 +68,20 @@ export default function ChatFlow({
   const calculateNodePosition = (message: ChatMessage, allMessages: ChatMessage[]) => {
     const isUser = message.role === 'user';
     
-    // Find the depth level (how deep in the conversation thread)
-    let depth = 0;
-    let currentMessage = message;
-    while (currentMessage.parentMessageId) {
-      const parent = allMessages.find(m => m.id === currentMessage.parentMessageId);
-      if (parent) {
-        depth++;
-        currentMessage = parent;
-      } else {
-        break;
-      }
-    }
+    // Sort messages by position to ensure consistent ordering
+    const sortedMessages = [...allMessages].sort((a, b) => a.position - b.position);
+    const messageIndex = sortedMessages.findIndex(m => m.id === message.id);
     
-    // Calculate position based on depth and role
-    const baseY = depth * 180; // Vertical spacing between levels
+    // Calculate position based on message index and role for consistency
+    const baseY = messageIndex * 160; // Vertical spacing between messages
     const baseX = isUser ? 50 : 450; // Horizontal spacing between user and AI
     
-    // Add some randomness to avoid perfect overlaps
-    const randomOffset = Math.random() * 20 - 10;
+    // Use a deterministic offset based on message ID to avoid random shifts
+    const deterministicOffset = (message.id.charCodeAt(0) % 20) - 10;
     
     return {
-      x: baseX + randomOffset,
-      y: baseY + randomOffset,
+      x: baseX + deterministicOffset,
+      y: baseY + deterministicOffset,
     };
   };
 
@@ -122,8 +95,10 @@ export default function ChatFlow({
 
   // Convert ChatMessage entities to React Flow nodes and edges
   const { flowNodes, flowEdges } = useMemo(() => {
-    const nodes: Node<FlowNodeData>[] = [];
-    const edges: Edge[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const nodes: any[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const edges: any[] = [];
 
     // Find the latest user message
     const userMessages = messages.filter(msg => msg.role === 'user');
@@ -132,10 +107,10 @@ export default function ChatFlow({
     messages.forEach((message) => {
       const position = calculateNodePosition(message, messages);
       
-      // Create node based on message role with proper data typing
+      // Create node based on message role
       if (message.role === 'user') {
         const isLatestUserMessage = latestUserMessage?.id === message.id;
-        const node: Node<UserMessageNodeData> = {
+        const node = {
           id: message.id,
           type: 'userMessage',
           position,
@@ -144,6 +119,7 @@ export default function ChatFlow({
             createdAt: message.createdAt,
             messageId: message.id,
             isLatestUserMessage,
+            isLoading,
             onEdit: handleEditMessage,
             onDelete: handleDeleteMessage,
             onGenerateResponse: handleGenerateResponse,
@@ -152,7 +128,7 @@ export default function ChatFlow({
         nodes.push(node);
       } else {
         const isCurrentlyStreaming = currentStreamingMessageId === message.id;
-        const node: Node<AIMessageNodeData> = {
+        const node = {
           id: message.id,
           type: 'aiMessage',
           position,
@@ -161,7 +137,7 @@ export default function ChatFlow({
             createdAt: message.createdAt,
             messageId: message.id,
             isGenerating: !message.content.trim() && !isCurrentlyStreaming,
-            streamingContent: streamingContent?.[message.id],
+            streamingContent: streamingContent[message.id],
             onEdit: handleEditMessage,
             onDelete: handleDeleteMessage,
           },
@@ -171,7 +147,7 @@ export default function ChatFlow({
 
       // Create edge if this message has a parent
       if (message.parentMessageId) {
-        const edge: Edge = {
+        const edge = {
           id: `edge-${message.parentMessageId}-${message.id}`,
           source: message.parentMessageId,
           target: message.id,
@@ -191,8 +167,10 @@ export default function ChatFlow({
 
   // Update nodes and edges when messages change
   useEffect(() => {
-    setNodes(flowNodes);
-    setEdges(flowEdges);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setNodes(flowNodes as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setEdges(flowEdges as any);
   }, [flowNodes, flowEdges, setNodes, setEdges]);
 
   // Handle creating new user messages
@@ -216,12 +194,15 @@ export default function ChatFlow({
   // Handle connections between nodes
   const onConnect = useCallback((params: Connection) => {
     // Don't allow connections between nodes of the same type
-    const sourceNode = nodes.find(n => n.id === params.source);
-    const targetNode = nodes.find(n => n.id === params.target);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sourceNode = nodes.find((n: any) => n.id === params.source);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const targetNode = nodes.find((n: any) => n.id === params.target);
     
     if (sourceNode && targetNode) {
       // Only allow user -> AI connections
-      if (sourceNode.type === 'userMessage' && targetNode.type === 'aiMessage') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((sourceNode as any).type === 'userMessage' && (targetNode as any).type === 'aiMessage') {
         setEdges((eds) => addEdge(params, eds));
       }
     }

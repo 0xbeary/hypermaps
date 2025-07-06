@@ -1,21 +1,21 @@
 import { Handle, NodeProps, Position } from '@xyflow/react';
 import { memo, useState, useCallback } from 'react';
 
-export interface UserMessageNodeData {
+export interface UserMessageNodeData extends Record<string, unknown> {
   content: string;
   createdAt: Date;
   messageId: string;
   isLatestUserMessage?: boolean;
+  isLoading?: boolean;
   onEdit?: (messageId: string, newContent: string, newRole?: 'user' | 'assistant') => void;
   onDelete?: (messageId: string) => void;
   onGenerateResponse?: (messageId: string) => Promise<void>;
 }
 
 function UserMessageNode({ data }: NodeProps) {
-  const { content, createdAt, messageId, isLatestUserMessage, onEdit, onDelete, onGenerateResponse } = data as unknown as UserMessageNodeData;
+  const { content, createdAt, messageId, isLatestUserMessage, isLoading = false, onEdit, onDelete, onGenerateResponse } = data as UserMessageNodeData;
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(content);
-  const [isGenerating, setIsGenerating] = useState(false);
 
   const handleSave = useCallback(() => {
     if (onEdit && editContent !== content) {
@@ -31,17 +31,14 @@ function UserMessageNode({ data }: NodeProps) {
   }, [onDelete, messageId]);
 
   const handleGenerateResponse = useCallback(async () => {
-    if (onGenerateResponse && !isGenerating) {
-      setIsGenerating(true);
+    if (onGenerateResponse && !isLoading) {
       try {
         await onGenerateResponse(messageId);
       } catch (error) {
         console.error('Error generating response:', error);
-      } finally {
-        setIsGenerating(false);
       }
     }
-  }, [onGenerateResponse, messageId, isGenerating]);
+  }, [onGenerateResponse, messageId, isLoading]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && e.ctrlKey) {
@@ -131,11 +128,11 @@ function UserMessageNode({ data }: NodeProps) {
         <div className="mb-2">
           <button
             onClick={handleGenerateResponse}
-            disabled={isGenerating}
+            disabled={isLoading}
             className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors w-full justify-center"
             title="Generate AI response"
           >
-            {isGenerating ? (
+            {isLoading ? (
               <>
                 <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
                 <span>Generating...</span>

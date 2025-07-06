@@ -44,6 +44,8 @@ function FlowSpace() {
   const { 
     generateAIResponseForFlow,
     isLoading,
+    streamingContent,
+    currentStreamingMessageId,
   } = useStreamingChat('conv-1', messages || []);
 
   const handleGenerateAIResponse = useCallback(async (userMessage: ChatMessage) => {
@@ -141,6 +143,9 @@ function FlowSpace() {
           <ChatFlow 
             messages={messages || []} 
             conversationId="conv-1"
+            streamingContent={streamingContent}
+            currentStreamingMessageId={currentStreamingMessageId}
+            isLoading={isLoading}
             onGenerateAIResponse={handleGenerateAIResponse}
             onEditMessage={handleEditMessage}
             onDeleteMessage={handleDeleteMessage}

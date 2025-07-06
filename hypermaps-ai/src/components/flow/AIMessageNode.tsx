@@ -1,7 +1,7 @@
 import { Handle, NodeProps, Position } from '@xyflow/react';
 import { memo, useState, useCallback } from 'react';
 
-export interface AIMessageNodeData {
+export interface AIMessageNodeData extends Record<string, unknown> {
   content: string;
   createdAt: Date;
   messageId: string;
@@ -11,7 +11,7 @@ export interface AIMessageNodeData {
   onDelete?: (messageId: string) => void;
 }
 
-function AIMessageNode({ data }: NodeProps<AIMessageNodeData>) {
+function AIMessageNode({ data }: NodeProps) {
   const { 
     content, 
     createdAt, 
@@ -20,7 +20,7 @@ function AIMessageNode({ data }: NodeProps<AIMessageNodeData>) {
     streamingContent, 
     onEdit, 
     onDelete 
-  } = data;
+  } = data as AIMessageNodeData;
   
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(content);

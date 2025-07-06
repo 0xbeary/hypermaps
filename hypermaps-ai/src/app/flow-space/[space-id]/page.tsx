@@ -6,13 +6,11 @@ import {
   HypergraphSpaceProvider,
   useUpdateEntity,
   useDeleteEntity,
-  useCreateEntity,
   useQuery,
   useSpace,
 } from '@graphprotocol/hypergraph-react';
 import { ChatFlow } from '@/components/flow';
 import { StreamingChat, useStreamingChat } from '@/components/StreamingChat';
-import { v4 as uuidv4 } from 'uuid';
 
 interface FlowSpacePageProps {
   params: Promise<{ 'space-id': string }>;
@@ -40,31 +38,22 @@ function FlowSpace() {
   
   const updateMessage = useUpdateEntity(ChatMessage);
   const deleteMessage = useDeleteEntity();
-  const createMessage = useCreateEntity(ChatMessage);
-  const [generatingMessageIds, setGeneratingMessageIds] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'flow' | 'chat'>('flow');
 
   // Use unified streaming hook
   const { 
     generateAIResponseForFlow,
     isLoading,
-    streamingContent,
-    currentStreamingMessageId,
   } = useStreamingChat('conv-1', messages || []);
 
   const handleGenerateAIResponse = useCallback(async (userMessage: ChatMessage) => {
     if (isLoading) return;
     
-    const aiMessageId = uuidv4();
-    
     try {
       console.log('Starting AI response generation for user message:', userMessage.id);
       
-      // Add to generating set to show loading state
-      setGeneratingMessageIds(prev => new Set(prev).add(aiMessageId));
-      
       // Don't create the entity here - let the streaming function create it when complete
-      await generateAIResponseForFlow(userMessage, aiMessageId);
+      await generateAIResponseForFlow(userMessage);
       
       console.log('AI response generation completed successfully');
       
@@ -72,19 +61,10 @@ function FlowSpace() {
       console.error('Error in handleGenerateAIResponse:', {
         error,
         userMessageId: userMessage.id,
-        aiMessageId
       });
       
       // Show user-friendly error
       alert('Failed to generate AI response. Please try again.');
-      
-    } finally {
-      // Always remove from generating set
-      setGeneratingMessageIds(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(aiMessageId);
-        return newSet;
-      });
     }
   }, [generateAIResponseForFlow, isLoading]);
 
@@ -104,31 +84,18 @@ function FlowSpace() {
   }, [updateMessage]);
 
   const handleDeleteMessage = useCallback((messageId: string) => {
-    const isGeneratingMessage = generatingMessageIds.has(messageId);
-    const confirmMessage = isGeneratingMessage 
-      ? 'Are you sure you want to delete this generating response?' 
-      : 'Are you sure you want to delete this message?';
+    const confirmMessage = 'Are you sure you want to delete this message?';
       
     if (window.confirm(confirmMessage)) {
       try {
         deleteMessage(messageId);
-        
-        // Remove from generating set if it was generating
-        if (isGeneratingMessage) {
-          setGeneratingMessageIds(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(messageId);
-            return newSet;
-          });
-        }
-        
         console.log(`Deleted message: ${messageId}`);
       } catch (error) {
         console.error('Error deleting message:', error);
         alert('Error deleting message');
       }
     }
-  }, [deleteMessage, generatingMessageIds]);
+  }, [deleteMessage]);
 
   if (!ready) {
     return <div>Loading...</div>;
@@ -174,9 +141,6 @@ function FlowSpace() {
           <ChatFlow 
             messages={messages || []} 
             conversationId="conv-1"
-            generatingMessageIds={generatingMessageIds}
-            streamingContent={streamingContent}
-            currentStreamingMessageId={currentStreamingMessageId}
             onGenerateAIResponse={handleGenerateAIResponse}
             onEditMessage={handleEditMessage}
             onDeleteMessage={handleDeleteMessage}

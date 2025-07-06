@@ -100,6 +100,39 @@ export default function ChatFlow({
     };
   }, []);
 
+  // Handle creating new user messages
+  const handleCreateUserMessage = useCallback((content: string, parentId?: string, position?: { x: number, y: number }) => {
+    const id = uuidv4();
+    let x = position?.x;
+    let y = position?.y;
+
+    // If no position is provided, calculate a default one
+    if (x === undefined || y === undefined) {
+      const tempMessage = {
+        id,
+        role: 'user' as const,
+        position: messages.length,
+      } as ChatMessage;
+      const calculatedPosition = calculateNodePosition(tempMessage, [...messages, tempMessage]);
+      x = calculatedPosition.x;
+      y = calculatedPosition.y;
+    }
+
+    createMessage({
+      id,
+      content,
+      role: 'user',
+      createdAt: new Date(),
+      conversationId,
+      parentMessageId: parentId || '',
+      position: messages.length,
+      x,
+      y,
+    });
+
+    // AI response is no longer automatically triggered.
+  }, [createMessage, conversationId, messages, calculateNodePosition]);
+
   // Convert ChatMessage entities to React Flow nodes and edges
   const { flowNodes, flowEdges } = useMemo(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -152,6 +185,7 @@ export default function ChatFlow({
             streamingContent: isCurrentlyStreaming ? streamingContent[message.id] : undefined,
             onEdit: handleEditMessage,
             onDelete: handleDeleteMessage,
+            onCreateUserMessage: handleCreateUserMessage,
           },
         };
         nodes.push(node);
@@ -207,6 +241,7 @@ export default function ChatFlow({
           streamingContent: streamingContent[currentStreamingMessageId],
           onEdit: handleEditMessage,
           onDelete: handleDeleteMessage,
+          onCreateUserMessage: handleCreateUserMessage,
         },
       };
       nodes.push(streamingNode);
@@ -247,39 +282,6 @@ export default function ChatFlow({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setEdges(flowEdges as any);
   }, [flowNodes, flowEdges, setNodes, setEdges]);
-
-  // Handle creating new user messages
-  const handleCreateUserMessage = useCallback((content: string, parentId?: string, position?: { x: number, y: number }) => {
-    const id = uuidv4();
-    let x = position?.x;
-    let y = position?.y;
-
-    // If no position is provided, calculate a default one
-    if (x === undefined || y === undefined) {
-      const tempMessage = {
-        id,
-        role: 'user' as const,
-        position: messages.length,
-      } as ChatMessage;
-      const calculatedPosition = calculateNodePosition(tempMessage, [...messages, tempMessage]);
-      x = calculatedPosition.x;
-      y = calculatedPosition.y;
-    }
-
-    createMessage({
-      id,
-      content,
-      role: 'user',
-      createdAt: new Date(),
-      conversationId,
-      parentMessageId: parentId || '',
-      position: messages.length,
-      x,
-      y,
-    });
-
-    // AI response is no longer automatically triggered.
-  }, [createMessage, conversationId, messages, calculateNodePosition]);
 
   // Handle connections between nodes
   const onConnect = useCallback((params: Connection) => {

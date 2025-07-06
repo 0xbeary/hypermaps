@@ -9,6 +9,7 @@ export interface AIMessageNodeData extends Record<string, unknown> {
   streamingContent?: string;
   onEdit?: (messageId: string, newContent: string, newRole?: 'user' | 'assistant') => void;
   onDelete?: (messageId: string) => void;
+  onCreateUserMessage?: (content: string, parentId?: string) => void;
 }
 
 function AIMessageNode({ data }: NodeProps) {
@@ -19,7 +20,8 @@ function AIMessageNode({ data }: NodeProps) {
     isGenerating, 
     streamingContent, 
     onEdit, 
-    onDelete 
+    onDelete, 
+    onCreateUserMessage 
   } = data as AIMessageNodeData;
   
   const [isEditing, setIsEditing] = useState(false);
@@ -47,6 +49,15 @@ function AIMessageNode({ data }: NodeProps) {
       setIsEditing(false);
     }
   }, [handleSave, content]);
+
+  const handleCreateUserMessage = useCallback(() => {
+    if (onCreateUserMessage) {
+      const userInput = prompt('Enter your follow-up message:');
+      if (userInput && userInput.trim()) {
+        onCreateUserMessage(userInput.trim(), messageId);
+      }
+    }
+  }, [onCreateUserMessage, messageId]);
 
   // Use streaming content if available, otherwise use stored content
   const displayContent = streamingContent || content;
@@ -134,6 +145,20 @@ function AIMessageNode({ data }: NodeProps) {
           </>
         )}
       </div>
+      
+      {/* Add User Message Button - show when not editing and not generating */}
+      {!isEditing && !isGenerating && onCreateUserMessage && (
+        <div className="mb-2">
+          <button
+            onClick={handleCreateUserMessage}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors w-full justify-center"
+            title="Add follow-up user message"
+          >
+            <span className="text-lg">+</span>
+            <span>Add User Message</span>
+          </button>
+        </div>
+      )}
       
       {/* Handle for receiving connections from user messages */}
       <Handle 

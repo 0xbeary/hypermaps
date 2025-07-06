@@ -123,8 +123,8 @@ function UserMessageNode({ data }: NodeProps) {
         )}
       </div>
 
-      {/* Generate Response Button - only show for latest user message */}
-      {isLatestUserMessage && !isEditing && (
+      {/* Generate Response Button - show for all user messages */}
+      {!isEditing && onGenerateResponse && (
         <div className="mb-2">
           <button
             onClick={handleGenerateResponse}

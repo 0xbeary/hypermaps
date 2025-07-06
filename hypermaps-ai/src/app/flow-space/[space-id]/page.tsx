@@ -9,6 +9,14 @@ import {
   useQuery,
   useSpace,
 } from '@graphprotocol/hypergraph-react';
+import { 
+  usePostgresSpace, 
+  usePostgresQuery, 
+  usePostgresUpdateEntity, 
+  usePostgresDeleteEntity,
+  MockHypergraphSpaceProvider
+} from '@/app/data-provider';
+import { USE_POSTGRES } from '@/lib/config';
 import { ChatFlow } from '@/components/flow';
 import { StreamingChat, useStreamingChat } from '@/components/StreamingChat';
 import { ReactFlowProvider } from '@xyflow/react';
@@ -17,36 +25,88 @@ interface FlowSpacePageProps {
   params: Promise<{ 'space-id': string }>;
 }
 
+// Custom hooks to handle conditional logic
+function useSpaceData(mode: 'public' | 'private') {
+  const hypergraphSpace = useSpace({ mode });
+  const postgresSpace = usePostgresSpace({ mode });
+  
+  return USE_POSTGRES ? postgresSpace : hypergraphSpace;
+}
+
+function useMessagesData(options: { mode: 'public' | 'private'; filter: { conversationId: { is: string } } }) {
+  const hypergraphData = useQuery(ChatMessage, options);
+  const postgresData = usePostgresQuery<ChatMessage>(ChatMessage, options);
+  
+  return USE_POSTGRES ? postgresData : hypergraphData;
+}
+
+function useCommentsData(options: { mode: 'public' | 'private'; filter: { conversationId: { is: string } } }) {
+  const hypergraphData = useQuery(Comment, options);
+  const postgresData = usePostgresQuery<Comment>(Comment, options);
+  
+  return USE_POSTGRES ? postgresData : hypergraphData;
+}
+
+function useUpdateMessageData() {
+  const hypergraphUpdate = useUpdateEntity(ChatMessage);
+  const postgresUpdate = usePostgresUpdateEntity<ChatMessage>(ChatMessage);
+  
+  return USE_POSTGRES ? postgresUpdate : hypergraphUpdate;
+}
+
+function useUpdateCommentData() {
+  const hypergraphUpdate = useUpdateEntity(Comment);
+  const postgresUpdate = usePostgresUpdateEntity<Comment>(Comment);
+  
+  return USE_POSTGRES ? postgresUpdate : hypergraphUpdate;
+}
+
+function useDeleteEntityData() {
+  const hypergraphDelete = useDeleteEntity();
+  const postgresDelete = usePostgresDeleteEntity();
+  
+  return USE_POSTGRES ? postgresDelete : hypergraphDelete;
+}
+
+// Conditional provider wrapper
+function ConditionalSpaceProvider({ children, spaceId }: { children: React.ReactNode; spaceId: string }) {
+  if (USE_POSTGRES) {
+    return <MockHypergraphSpaceProvider>{children}</MockHypergraphSpaceProvider>;
+  }
+  
+  return <HypergraphSpaceProvider space={spaceId}>{children}</HypergraphSpaceProvider>;
+}
+
 export default function FlowSpacePage({ params }: FlowSpacePageProps) {
   const resolvedParams = use(params);
   const spaceId = resolvedParams['space-id'];
 
   return (
-    <HypergraphSpaceProvider space={spaceId}>
+    <ConditionalSpaceProvider spaceId={spaceId}>
       <FlowSpace />
-    </HypergraphSpaceProvider>
+    </ConditionalSpaceProvider>
   );
 }
 
 function FlowSpace() {
-  const { name, ready } = useSpace({ mode: 'private' });
-  const { data: messages } = useQuery(ChatMessage, { 
+  const { name, ready } = useSpaceData('private');
+  const { data: messages } = useMessagesData({ 
     mode: 'private', 
     filter: {
       conversationId: { is: "conv-1" }
     } 
   });
-  const { data: comments } = useQuery(Comment, { 
+  const { data: comments } = useCommentsData({ 
     mode: 'private', 
     filter: {
       conversationId: { is: "conv-1" }
     } 
   });
   
-  const updateMessage = useUpdateEntity(ChatMessage);
-  const updateComment = useUpdateEntity(Comment);
-  const deleteMessage = useDeleteEntity();
-  const deleteComment = useDeleteEntity();
+  const updateMessage = useUpdateMessageData();
+  const updateComment = useUpdateCommentData();
+  const deleteMessage = useDeleteEntityData();
+  const deleteComment = useDeleteEntityData();
   const [viewMode, setViewMode] = useState<'flow' | 'chat'>('flow');
 
   // Use unified streaming hook

@@ -364,10 +364,25 @@ export default function ChatFlow({
   ]);
 
   // Update nodes and edges when messages change
-  useEffect(() => {
-    setNodes(flowNodes);
-    setEdges(flowEdges);
-  }, [flowNodes, flowEdges, setNodes, setEdges]);
+// ... existing code ...
+
+// Update nodes and edges when messages/comments/streaming data change
+// ──────────────────────────────────────────────────────────────────────────────
+// Replace the old effect that compared arrays on every render
+// with one that runs ONLY when the underlying data arrays change.
+// eslint-disable is fine here – we want to ignore object-identity warnings.
+// ──────────────────────────────────────────────────────────────────────────────
+
+// 👇 NEW – sync hypergraph → local React-Flow state *once* per data change
+useEffect(() => {
+  setNodes(flowNodes);
+  setEdges(flowEdges);
+  // We intentionally depend on the raw data, not the derived arrays,
+  // so dragging a node doesn’t immediately get overwritten.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [messages, comments, streamingContent, currentStreamingMessageId]);
+
+// ... existing code ...
 
   // Handle connections between nodes
   const onConnect = useCallback((params: Connection) => {

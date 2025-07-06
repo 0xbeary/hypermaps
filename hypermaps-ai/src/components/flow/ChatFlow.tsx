@@ -96,10 +96,28 @@ export default function ChatFlow({
   }, [onGenerateAIResponse]); // Remove messages dependency
 
   // Enhanced positioning logic for better visual flow
-  const calculateNodePosition = useCallback((message: ChatMessage | Comment, allMessages: (ChatMessage | Comment)[]) => {
+  const calculateNodePosition = useCallback((message: ChatMessage | Comment, allMessages: (ChatMessage | Comment)[], parentId?: string) => {
     const isUser = 'role' in message && message.role === 'user';
     
-    // Sort messages by position to ensure consistent ordering
+    // If there's a parent, position relative to it
+    if (parentId) {
+      const parentMessage = allMessages.find(m => m.id === parentId);
+      if (parentMessage && parentMessage.x !== undefined && parentMessage.y !== undefined) {
+        // Position user messages to the right of AI messages, AI messages to the right of user messages
+        const baseX = isUser ? parentMessage.x + 500 : parentMessage.x + 500; // Both go to the right
+        const baseY = parentMessage.y; // Same Y level as parent
+        
+        // Small random offset to avoid exact overlaps
+        const deterministicOffset = (message.id.charCodeAt(0) % 20) - 10;
+        
+        return {
+          x: baseX + deterministicOffset,
+          y: baseY + deterministicOffset,
+        };
+      }
+    }
+    
+    // Fallback to the original positioning logic for messages without parents
     const sortedMessages = [...allMessages].sort((a, b) => a.position - b.position);
     const messageIndex = sortedMessages.findIndex(m => m.id === message.id);
     
@@ -129,7 +147,7 @@ export default function ChatFlow({
         role: 'user' as const,
         position: messages.length,
       } as ChatMessage;
-      const calculatedPosition = calculateNodePosition(tempMessage, [...messages, tempMessage]);
+      const calculatedPosition = calculateNodePosition(tempMessage, [...messages, tempMessage], parentId);
       x = calculatedPosition.x;
       y = calculatedPosition.y;
     }
@@ -198,7 +216,7 @@ export default function ChatFlow({
       const position =
         message.x != null && message.y != null
           ? { x: message.x, y: message.y }
-          : calculateNodePosition(message, messages);
+          : calculateNodePosition(message, messages, message.parentMessageId);
       
       // Create node based on message role
       if (message.role === 'user') {
@@ -291,7 +309,7 @@ export default function ChatFlow({
       } as ChatMessage;
 
       const messagesWithTemp = [...messages, tempMessage];
-      const streamingPosition = calculateNodePosition(tempMessage, messagesWithTemp);
+      const streamingPosition = calculateNodePosition(tempMessage, messagesWithTemp, latestUserMessage?.id);
       
       const streamingNode = {
         id: currentStreamingMessageId,

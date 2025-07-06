@@ -1,5 +1,4 @@
 packages:
-  - 'hypermaps'
   - 'hypermaps-ai'
 
 onlyBuiltDependencies:

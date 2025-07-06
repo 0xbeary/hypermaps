@@ -12,7 +12,15 @@
 	"forwardPorts": [3000, 5173],
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "pnpm install"
+	"postCreateCommand": "pnpm install",
+
+	"features": {
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+	}
+	
+	// ,
+
+	// "postStartCommand": "docker compose up -d"
 
 	// Configure tool-specific properties.
 	// "customizations": {},

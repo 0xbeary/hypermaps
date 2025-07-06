@@ -52,12 +52,33 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
       });
       
       try {
-        const position = existingMessages.length + 1;
-        const baseY = position * 160;
-        const baseX = 450; // AI message
-        const deterministicOffset = (message.id.charCodeAt(0) % 20) - 10;
-        const x = baseX + deterministicOffset;
-        const y = baseY + deterministicOffset;
+        let x = 450; // Default AI position
+        let y = 160; // Default AI position
+        
+        // If there's a parent user message, position relative to it
+        if (lastUserMessageRef.current) {
+          const parentMessage = existingMessages.find(msg => msg.id === lastUserMessageRef.current);
+          if (parentMessage && parentMessage.x !== undefined && parentMessage.y !== undefined) {
+            // Position to the right of the parent user message at the same Y level
+            x = parentMessage.x + 500; // Offset to the right of user message
+            y = parentMessage.y; // Same Y level as parent
+            
+            // Small deterministic offset to avoid exact overlaps
+            const deterministicOffset = (message.id.charCodeAt(0) % 20) - 10;
+            x += deterministicOffset;
+            y += deterministicOffset;
+          }
+        }
+        
+        // Fallback to old logic if no parent found
+        if (!lastUserMessageRef.current || !existingMessages.find(msg => msg.id === lastUserMessageRef.current)) {
+          const position = existingMessages.length + 1;
+          const baseY = position * 160;
+          const baseX = 450; // AI message
+          const deterministicOffset = (message.id.charCodeAt(0) % 20) - 10;
+          x = baseX + deterministicOffset;
+          y = baseY + deterministicOffset;
+        }
 
         // Save to hypergraph when streaming completes
         const aiMessage = createMessage({

@@ -1,16 +1,14 @@
 'use client';
 
-import { ChatMessage } from '@/schema';
+import { ChatMessage } from '@/app/schema';
 import { HypergraphSpaceProvider, useQuery, useSpace } from '@graphprotocol/hypergraph-react';
-import { use } from 'react';
 
 interface PublicSpacePageProps {
-  params: Promise<{ 'space-id': string }>;
+  params: { 'space-id': string };
 }
 
 export default function PublicSpacePage({ params }: PublicSpacePageProps) {
-  const resolvedParams = use(params);
-  const spaceId = resolvedParams['space-id'];
+  const spaceId = params['space-id'];
 
   return (
     <HypergraphSpaceProvider space={spaceId}>
@@ -72,7 +70,7 @@ function PublicSpace() {
                 <div className="space-y-3">
                   {sortedMessages.map((message) => (
                     <div 
-                      key={message.id} 
+                      key={message.conversationId} 
                       className={`p-3 rounded-lg ${
                         message.role === 'user' 
                           ? 'bg-blue-50 border-l-4 border-blue-400' 

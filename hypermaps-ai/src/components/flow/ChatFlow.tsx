@@ -18,17 +18,20 @@ import '@xyflow/react/dist/style.css';
 
 import UserMessageNode from './UserMessageNode';
 import AIMessageNode from './AIMessageNode';
-import { ChatMessage } from '@/app/schema';
+import CommentNode from './CommentNode';
+import { ChatMessage, Comment } from '@/app/schema';
 import { useCreateEntity } from '@graphprotocol/hypergraph-react';
 import { v4 as uuidv4 } from 'uuid';
 
 const nodeTypes = {
   userMessage: UserMessageNode,
   aiMessage: AIMessageNode,
+  comment: CommentNode,
 };
 
 type ChatFlowProps = {
   messages: ChatMessage[];
+  comments?: Comment[];
   conversationId: string;
   streamingContent?: { [messageId: string]: string };
   currentStreamingMessageId?: string | null;
@@ -36,11 +39,14 @@ type ChatFlowProps = {
   onGenerateAIResponse?: (userMessage: ChatMessage) => Promise<void>;
   onEditMessage?: (messageId: string, newContent: string, newRole?: 'user' | 'assistant') => void;
   onDeleteMessage?: (messageId: string) => void;
+  onEditComment?: (commentId: string, newContent: string) => void;
+  onDeleteComment?: (commentId: string) => void;
   onNodeMove?: (messageId: string, position: { x: number; y: number }) => void;
 };
 
 export default function ChatFlow({ 
   messages, 
+  comments = [],
   conversationId, 
   streamingContent = {},
   currentStreamingMessageId = null,
@@ -48,11 +54,14 @@ export default function ChatFlow({
   onGenerateAIResponse, 
   onEditMessage, 
   onDeleteMessage,
+  onEditComment,
+  onDeleteComment,
   onNodeMove,
 }: ChatFlowProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const createMessage = useCreateEntity(ChatMessage);
+  const createComment = useCreateEntity(Comment);
   const { screenToFlowPosition } = useReactFlow();
 
   // Stabilize callback dependencies to prevent unnecessary recreations
@@ -133,11 +142,38 @@ export default function ChatFlow({
     // AI response is no longer automatically triggered.
   }, [createMessage, conversationId, messages, calculateNodePosition]);
 
-  // Convert ChatMessage entities to React Flow nodes and edges
+  // Handle creating new comments
+  const handleCreateComment = useCallback((content: string, position?: { x: number, y: number }) => {
+    const id = uuidv4();
+    let x = position?.x || 200;
+    let y = position?.y || 200;
+
+    // If no position is provided, calculate a default one
+    if (position === undefined) {
+      const allItems = [...messages, ...comments];
+      const tempComment = {
+        id,
+        position: allItems.length,
+      } as Comment;
+      const calculatedPosition = calculateNodePosition(tempComment, allItems);
+      x = calculatedPosition.x + 300; // Offset comments to the right
+      y = calculatedPosition.y;
+    }
+
+    createComment({
+      id,
+      content,
+      createdAt: new Date(),
+      conversationId,
+      position: messages.length + comments.length,
+      x,
+      y,
+    });
+  }, [createComment, conversationId, messages.length, comments.length]);
+
+  // Convert ChatMessage entities and Comments to React Flow nodes and edges
   const { flowNodes, flowEdges } = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const nodes: any[] = [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const edges: any[] = [];
 
     // Find the latest user message
@@ -181,7 +217,6 @@ export default function ChatFlow({
             createdAt: message.createdAt,
             messageId: message.id,
             isGenerating: !message.content.trim() && !isCurrentlyStreaming,
-            // Use streaming content if this message is currently streaming
             streamingContent: isCurrentlyStreaming ? streamingContent[message.id] : undefined,
             onEdit: handleEditMessage,
             onDelete: handleDeleteMessage,
@@ -208,26 +243,40 @@ export default function ChatFlow({
       }
     });
 
-    // Only add a temporary streaming node if the message doesn't exist in hypergraph yet
-    // This ensures hypergraph messages always take priority and replace temporary nodes
+    // Create nodes for comments
+    comments.forEach((comment) => {
+      const position =
+        comment.x != null && comment.y != null
+          ? { x: comment.x, y: comment.y }
+          : { x: 400, y: 100 + comments.indexOf(comment) * 150 };
+      
+      const node = {
+        id: comment.id,
+        type: 'comment',
+        position,
+        data: {
+          content: comment.content,
+          createdAt: comment.createdAt,
+          messageId: comment.id,
+          onEdit: onEditComment,
+          onDelete: onDeleteComment,
+        },
+      };
+      nodes.push(node);
+    });
+
+    // Handle streaming node (existing code)
     const messageExistsInHypergraph = messages.find(m => m.id === currentStreamingMessageId);
     
     if (currentStreamingMessageId && !messageExistsInHypergraph) {
-      // Create a mock message object for the temporary node
       const tempMessage = { 
         id: currentStreamingMessageId, 
         role: 'assistant' as const,
-        position: messages.length, // Position it at the end
+        position: messages.length,
       } as ChatMessage;
 
-      // Create an augmented message list that includes our temporary node
-      // This ensures its position is calculated correctly relative to the final list
       const messagesWithTemp = [...messages, tempMessage];
-
-      const streamingPosition = calculateNodePosition(
-        tempMessage, 
-        messagesWithTemp
-      );
+      const streamingPosition = calculateNodePosition(tempMessage, messagesWithTemp);
       
       const streamingNode = {
         id: currentStreamingMessageId,
@@ -246,7 +295,6 @@ export default function ChatFlow({
       };
       nodes.push(streamingNode);
 
-      // Create edge from the latest user message to the streaming node
       if (latestUserMessage) {
         const streamingEdge = {
           id: `edge-${latestUserMessage.id}-${currentStreamingMessageId}`,
@@ -266,12 +314,15 @@ export default function ChatFlow({
     return { flowNodes: nodes, flowEdges: edges };
   }, [
     messages, 
+    comments,
     streamingContent, 
     currentStreamingMessageId, 
     calculateNodePosition,
     handleEditMessage, 
     handleDeleteMessage, 
     handleGenerateResponse,
+    onEditComment,
+    onDeleteComment,
     isLoading
   ]);
 
@@ -309,16 +360,27 @@ export default function ChatFlow({
     [onNodeMove]
   );
 
-  // Handle double-click to create new user message
+  // Handle double-click to create new user message or comment
   const handlePaneClick = useCallback((event: React.MouseEvent) => {
     if (event.detail === 2) { // Double-click
-      const content = prompt('Enter your message:');
-      if (content) {
-        const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-        handleCreateUserMessage(content, undefined, position);
+      const options = ['User Message', 'Comment'];
+      const choice = prompt(`What would you like to create?\n1. ${options[0]}\n2. ${options[1]}\n\nEnter 1 or 2:`);
+      
+      if (choice === '1') {
+        const content = prompt('Enter your message:');
+        if (content) {
+          const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+          handleCreateUserMessage(content, undefined, position);
+        }
+      } else if (choice === '2') {
+        const content = prompt('Enter your comment:');
+        if (content) {
+          const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+          handleCreateComment(content, position);
+        }
       }
     }
-  }, [handleCreateUserMessage, screenToFlowPosition]);
+  }, [handleCreateUserMessage, handleCreateComment, screenToFlowPosition]);
 
   return (
     <div style={{ width: '100%', height: '100%' }}>
@@ -340,23 +402,40 @@ export default function ChatFlow({
         <Panel position="top-left" className="bg-gray-900 text-white p-4 rounded-lg shadow-md border border-gray-700">
           <h3 className="font-semibold mb-2">💬 Chat Flow</h3>
           <p className="text-sm text-gray-300 mb-2">
-            Double-click to create a new message
+            Double-click to create a new message or comment
           </p>
-          <button
-            onClick={() => handleCreateUserMessage("ask me anything")}
-            className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
-          >
-            + Add Message
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleCreateUserMessage("ask me anything")}
+              className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+            >
+              + Message
+            </button>
+            <button
+              onClick={() => handleCreateComment("Add your comment here...")}
+              className="px-3 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600"
+            >
+              💬 Comment
+            </button>
+          </div>
         </Panel>
         <Panel position="bottom-right" className="bg-white p-2 rounded-lg shadow-md">
-          <button
-            onClick={() => handleCreateUserMessage("What would you like to know?")}
-            className="w-12 h-12 bg-blue-500 text-white rounded-full hover:bg-blue-600 flex items-center justify-center text-2xl"
-            title="Add new message"
-          >
-            +
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleCreateUserMessage("What would you like to know?")}
+              className="w-12 h-12 bg-blue-500 text-white rounded-full hover:bg-blue-600 flex items-center justify-center text-2xl"
+              title="Add new message"
+            >
+              +
+            </button>
+            <button
+              onClick={() => handleCreateComment("Add your comment here...")}
+              className="w-12 h-12 bg-yellow-500 text-white rounded-full hover:bg-yellow-600 flex items-center justify-center text-xl"
+              title="Add new comment"
+            >
+              💬
+            </button>
+          </div>
         </Panel>
       </ReactFlow>
     </div>

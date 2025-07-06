@@ -66,7 +66,7 @@ function UserMessageNode({ data }: NodeProps) {
         </div>
         
         {!isEditing && (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setIsEditing(true)}
               className="p-1 text-gray-400 hover:text-blue-400 hover:bg-gray-800 rounded"
@@ -81,6 +81,20 @@ function UserMessageNode({ data }: NodeProps) {
             >
               🗑️
             </button>
+            {onGenerateResponse && (
+              <button
+                onClick={handleGenerateResponse}
+                disabled={isLoading}
+                className="flex items-center justify-center w-6 h-6 bg-green-600 text-white rounded-full hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Generate AI response"
+              >
+                {isLoading ? (
+                  <div className="animate-spin w-3 h-3 border-2 border-white border-t-transparent rounded-full"></div>
+                ) : (
+                  <span className="text-lg font-bold -translate-y-px">+</span>
+                )}
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -123,30 +137,6 @@ function UserMessageNode({ data }: NodeProps) {
         )}
       </div>
 
-      {/* Generate Response Button - show for all user messages */}
-      {!isEditing && onGenerateResponse && (
-        <div className="mb-2">
-          <button
-            onClick={handleGenerateResponse}
-            disabled={isLoading}
-            className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors w-full justify-center"
-            title="Generate AI response"
-          >
-            {isLoading ? (
-              <>
-                <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
-                <span>Generating...</span>
-              </>
-            ) : (
-              <>
-                <span className="text-lg">+</span>
-                <span>Generate AI Response</span>
-              </>
-            )}
-          </button>
-        </div>
-      )}
-      
       {/* Handle for connecting to AI responses */}
       <Handle 
         type="source" 

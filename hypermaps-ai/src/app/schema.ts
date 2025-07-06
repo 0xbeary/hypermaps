@@ -18,6 +18,20 @@ export class ChatMessage extends Entity.Class<ChatMessage>('ChatMessage')({
   y: Type.Number,
 }) {}
 
+export class Comment extends Entity.Class<Comment>('Comment')({
+  content: Type.Text,
+  id: Type.Text,
+  createdAt: Type.Date,
+  
+  // Optional conversation grouping
+  conversationId: Type.Text,
+  position: Type.Number,
+
+  // Store x, y coordinates for flow view
+  x: Type.Number,
+  y: Type.Number,
+}) {}
+
 // export class Conversation extends Entity.Class<Conversation>('Conversation')({
 //   name: Type.Text,
 //   messages: Type.Relation(ChatMessage),

@@ -74,7 +74,7 @@ function AIMessageNode({ data }: NodeProps) {
         </div>
         
         {!isEditing && (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             {!isGenerating && (
               <button
                 onClick={() => setIsEditing(true)}
@@ -93,6 +93,15 @@ function AIMessageNode({ data }: NodeProps) {
             >
               {isGenerating ? '🛑' : '🗑️'}
             </button>
+            {!isGenerating && onCreateUserMessage && (
+              <button
+                onClick={handleCreateUserMessage}
+                className="flex items-center justify-center w-6 h-6 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
+                title="Add follow-up user message"
+              >
+                <span className="text-lg font-bold -translate-y-px">+</span>
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -145,20 +154,6 @@ function AIMessageNode({ data }: NodeProps) {
           </>
         )}
       </div>
-      
-      {/* Add User Message Button - show when not editing and not generating */}
-      {!isEditing && !isGenerating && onCreateUserMessage && (
-        <div className="mb-2">
-          <button
-            onClick={handleCreateUserMessage}
-            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors w-full justify-center"
-            title="Add follow-up user message"
-          >
-            <span className="text-lg">+</span>
-            <span>Add User Message</span>
-          </button>
-        </div>
-      )}
       
       {/* Handle for receiving connections from user messages */}
       <Handle 

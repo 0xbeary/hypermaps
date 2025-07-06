@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useCallback, useState } from 'react';
-import { ChatMessage } from '@/app/schema';
+import { ChatMessage, Comment } from '@/app/schema';
 import {
   HypergraphSpaceProvider,
   useUpdateEntity,
@@ -36,9 +36,17 @@ function FlowSpace() {
       conversationId: { is: "conv-1" }
     } 
   });
+  const { data: comments } = useQuery(Comment, { 
+    mode: 'private', 
+    filter: {
+      conversationId: { is: "conv-1" }
+    } 
+  });
   
   const updateMessage = useUpdateEntity(ChatMessage);
+  const updateComment = useUpdateEntity(Comment);
   const deleteMessage = useDeleteEntity();
+  const deleteComment = useDeleteEntity();
   const [viewMode, setViewMode] = useState<'flow' | 'chat'>('flow');
 
   // Use unified streaming hook
@@ -100,15 +108,45 @@ function FlowSpace() {
     }
   }, [deleteMessage]);
 
-  const handleNodeMove = useCallback(
-    (messageId: string, position: { x: number; y: number }) => {
+  const handleEditComment = useCallback((commentId: string, newContent: string) => {
+    try {
+      updateComment(commentId, { content: newContent });
+      console.log(`Updated comment: ${commentId}`);
+    } catch (error) {
+      console.error('Error updating comment:', error);
+      alert('Error updating comment');
+    }
+  }, [updateComment]);
+
+  const handleDeleteComment = useCallback((commentId: string) => {
+    if (window.confirm('Are you sure you want to delete this comment?')) {
       try {
-        updateMessage(messageId, { x: position.x, y: position.y });
+        deleteComment(commentId);
+        console.log(`Deleted comment: ${commentId}`);
+      } catch (error) {
+        console.error('Error deleting comment:', error);
+        alert('Error deleting comment');
+      }
+    }
+  }, [deleteComment]);
+
+  const handleNodeMove = useCallback(
+    (nodeId: string, position: { x: number; y: number }) => {
+      try {
+        // Check if it's a message or comment
+        const message = messages?.find(m => m.id === nodeId);
+        const comment = comments?.find(c => c.id === nodeId);
+        
+        if (message) {
+          updateMessage(nodeId, { x: position.x, y: position.y });
+        } else if (comment) {
+          updateComment(nodeId, { x: position.x, y: position.y });
+        }
       } catch (error) {
         console.error('Error updating node position:', error);
       }
     },
-    [updateMessage]
+    [updateMessage, updateComment, messages, comments]
   );
 
   if (!ready) {
@@ -155,6 +193,7 @@ function FlowSpace() {
           <ReactFlowProvider>
             <ChatFlow
               messages={messages || []}
+              comments={comments || []}
               conversationId="conv-1"
               streamingContent={streamingContent}
               currentStreamingMessageId={currentStreamingMessageId}
@@ -162,6 +201,8 @@ function FlowSpace() {
               onGenerateAIResponse={handleGenerateAIResponse}
               onEditMessage={handleEditMessage}
               onDeleteMessage={handleDeleteMessage}
+              onEditComment={handleEditComment}
+              onDeleteComment={handleDeleteComment}
               onNodeMove={handleNodeMove}
             />
           </ReactFlowProvider>

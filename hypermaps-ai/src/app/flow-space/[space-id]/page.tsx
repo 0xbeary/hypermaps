@@ -4,13 +4,13 @@ import { use, useCallback, useState } from 'react';
 import { ChatMessage } from '@/app/schema';
 import {
   HypergraphSpaceProvider,
-  useCreateEntity,
   useUpdateEntity,
   useDeleteEntity,
   useQuery,
   useSpace,
 } from '@graphprotocol/hypergraph-react';
 import { ChatFlow } from '@/components/flow';
+import { StreamingChat, useStreamingChat } from '@/components/StreamingChat';
 import { v4 as uuidv4 } from 'uuid';
 
 interface FlowSpacePageProps {
@@ -37,85 +37,35 @@ function FlowSpace() {
     } 
   });
   
-  const createMessage = useCreateEntity(ChatMessage);
   const updateMessage = useUpdateEntity(ChatMessage);
   const deleteMessage = useDeleteEntity();
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+  const [generatingMessageIds, setGeneratingMessageIds] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'flow' | 'chat'>('flow');
+
+  // Use unified streaming hook
+  const { 
+    generateAIResponse,
+    isLoading,
+  } = useStreamingChat('conv-1', messages || []);
 
   const handleGenerateAIResponse = useCallback(async (userMessage: ChatMessage) => {
-    if (isGenerating) return;
-    
-    setIsGenerating(true);
+    if (isLoading) return;
     
     try {
-      // Create a placeholder AI message immediately
       const aiMessageId = uuidv4();
-      const aiMessage = createMessage({
-        id: aiMessageId,
-        content: "", // Empty content initially
-        role: "assistant",
-        createdAt: new Date(),
-        conversationId: userMessage.conversationId,
-        parentMessageId: userMessage.id, // Connect to the user message
-        position: (messages?.length || 0) + 1,
-      });
-
-      setStreamingMessageId(aiMessageId);
-
-      // Call the AI API with streaming
-      const response = await fetch('/api/ai-response', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userMessage.content,
-          conversationHistory: messages?.slice(-5) // Last 5 messages for context
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      // Handle streaming response
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let accumulatedContent = '';
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          
-          if (done) break;
-          
-          const chunk = decoder.decode(value, { stream: true });
-          accumulatedContent += chunk;
-          
-          // Update the AI message with accumulated content
-          updateMessage(aiMessageId, {
-            content: accumulatedContent
-          });
-        }
-      }
+      setGeneratingMessageIds(prev => new Set(prev).add(aiMessageId));
+      
+      // Use unified streaming approach
+      await generateAIResponse(userMessage);
       
     } catch (error) {
       console.error('Error generating AI response:', error);
-      
-      // Update the AI message with error content
-      if (streamingMessageId) {
-        updateMessage(streamingMessageId, {
-          content: 'Sorry, I encountered an error while generating a response. Please try again.'
-        });
-      }
-    } finally {
-      setIsGenerating(false);
-      setStreamingMessageId(null);
     }
-  }, [createMessage, updateMessage, messages, isGenerating, streamingMessageId]);
+  }, [generateAIResponse, isLoading]);
 
   const handleEditMessage = useCallback((messageId: string, newContent: string, newRole?: 'user' | 'assistant') => {
     try {
-      const updateData: any = { content: newContent };
+      const updateData: { content: string; role?: 'user' | 'assistant' } = { content: newContent };
       if (newRole) {
         updateData.role = newRole;
       }
@@ -129,44 +79,81 @@ function FlowSpace() {
   }, [updateMessage]);
 
   const handleDeleteMessage = useCallback((messageId: string) => {
-    if (window.confirm('Are you sure you want to delete this message?')) {
+    const isGeneratingMessage = generatingMessageIds.has(messageId);
+    const confirmMessage = isGeneratingMessage 
+      ? 'Are you sure you want to delete this generating response?' 
+      : 'Are you sure you want to delete this message?';
+      
+    if (window.confirm(confirmMessage)) {
       try {
         deleteMessage(messageId);
+        
+        // Remove from generating set if it was generating
+        if (isGeneratingMessage) {
+          setGeneratingMessageIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(messageId);
+            return newSet;
+          });
+        }
+        
         console.log(`Deleted message: ${messageId}`);
       } catch (error) {
         console.error('Error deleting message:', error);
         alert('Error deleting message');
       }
     }
-  }, [deleteMessage]);
+  }, [deleteMessage, generatingMessageIds]);
 
   if (!ready) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-lg">Loading flow space...</div>
-      </div>
-    );
+    return <div>Loading...</div>;
   }
 
   return (
-    <div className="h-screen flex flex-col">
-      {/* <header className="bg-white shadow-sm border-b p-4">
-        <h1 className="text-2xl font-bold text-gray-800">
-          🗺️ {name} - Flow View
-        </h1>
-        <p className="text-gray-600 text-sm">
-          Create and connect messages in a visual flow
-        </p>
-      </header> */}
-      
-      <div className="flex-1">
-        <ChatFlow 
-          messages={messages || []} 
-          conversationId="conv-1"
-          onGenerateAIResponse={handleGenerateAIResponse}
-          onEditMessage={handleEditMessage}
-          onDeleteMessage={handleDeleteMessage}
-        />
+    <div className="flex flex-col h-screen">
+      {/* Header with view toggle */}
+      <div className="flex items-center justify-between p-4 border-b">
+        <h1 className="text-2xl font-bold">🗺️ {name}</h1>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setViewMode('chat')}
+            className={`px-3 py-1 rounded ${
+              viewMode === 'chat' 
+                ? 'bg-blue-500 text-white' 
+                : 'bg-gray-200 text-gray-700'
+            }`}
+          >
+            💬 Chat
+          </button>
+          <button
+            onClick={() => setViewMode('flow')}
+            className={`px-3 py-1 rounded ${
+              viewMode === 'flow' 
+                ? 'bg-blue-500 text-white' 
+                : 'bg-gray-200 text-gray-700'
+            }`}
+          >
+            🗺️ Flow
+          </button>
+        </div>
+      </div>
+
+      {/* Content area */}
+      <div className="flex-1 overflow-hidden">
+        {viewMode === 'chat' ? (
+          <StreamingChat 
+            conversationId="conv-1"
+            existingMessages={messages || []}
+          />
+        ) : (
+          <ChatFlow 
+            messages={messages || []} 
+            conversationId="conv-1"
+            onGenerateAIResponse={handleGenerateAIResponse}
+            onEditMessage={handleEditMessage}
+            onDeleteMessage={handleDeleteMessage}
+          />
+        )}
       </div>
     </div>
   );

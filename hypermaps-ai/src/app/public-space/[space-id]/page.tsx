@@ -2,13 +2,15 @@
 
 import { ChatMessage } from '@/app/schema';
 import { HypergraphSpaceProvider, useQuery, useSpace } from '@graphprotocol/hypergraph-react';
+import { use } from 'react';
 
-interface PublicSpacePageProps {
-  params: { 'space-id': string };
+interface Props {
+  params: Promise<{ 'space-id': string }>;
 }
 
-export default function PublicSpacePage({ params }: PublicSpacePageProps) {
-  const spaceId = params['space-id'];
+export default function PublicSpacePage({ params }: Props) {
+  const resolvedParams = use(params);
+  const spaceId = resolvedParams['space-id'];
 
   return (
     <HypergraphSpaceProvider space={spaceId}>

@@ -27,7 +27,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
       router.replace('/');
       return;
     }
-  }, [authenticated, pathname, router, USE_POSTGRES]);
+  }, [authenticated, pathname, router]);
 
   if (USE_POSTGRES) {
     // In Postgres mode, we bypass wallet authentication.

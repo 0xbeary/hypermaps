@@ -14,6 +14,7 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
   const [streamingContent, setStreamingContent] = useState<{ [messageId: string]: string }>({});
   const [currentStreamingMessageId, setCurrentStreamingMessageId] = useState<string | null>(null);
   const lastUserMessageRef = useRef<string | null>(null);
+  const isStreaming = useRef(false);
 
   // Convert hypergraph messages to AI SDK format
   const convertToAIMessages = useCallback((messages: ChatMessage[]) => {
@@ -37,10 +38,21 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
     api: '/api/ai-response',
     initialMessages: convertToAIMessages(existingMessages),
     onFinish: async (message) => {
+      isStreaming.current = false;
       console.log('AI response finished:', message);
+      console.log('AI SDK message ID:', message.id);
+      
+      // CRITICAL FIX: Clear streaming state IMMEDIATELY before saving to hypergraph
+      // This prevents the temporary streaming node from being recreated
+      setCurrentStreamingMessageId(null);
+      setStreamingContent(prev => {
+        const newContent = { ...prev };
+        delete newContent[message.id];
+        return newContent;
+      });
       
       try {
-        // Only save to hypergraph when streaming completes
+        // Save to hypergraph when streaming completes
         const aiMessage = createMessage({
           id: message.id,
           content: message.content,
@@ -51,23 +63,20 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
           position: existingMessages.length + 1,
         });
         
-        console.log('Created AI message in hypergraph:', aiMessage);
+        console.log('Created AI message in hypergraph with ID:', aiMessage.id);
+        console.log('AI SDK ID vs Hypergraph ID:', message.id, 'vs', aiMessage.id);
+        console.log('IDs match:', message.id === aiMessage.id);
+        
         setErrorMessage(null);
         setRetryCount(0);
         
-        // Clean up streaming state
-        setCurrentStreamingMessageId(null);
-        setStreamingContent(prev => {
-          const newContent = { ...prev };
-          delete newContent[message.id];
-          return newContent;
-        });
       } catch (error) {
         console.error('Error saving AI message to hypergraph:', error);
         setErrorMessage('Failed to save message. Please try again.');
       }
     },
     onError: (error) => {
+      isStreaming.current = false;
       console.error('Streaming error:', error);
       
       // Clean up streaming state on error
@@ -91,7 +100,7 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
 
   // Track streaming content for flow view (no hypergraph operations during streaming)
   useEffect(() => {
-    if (isLoading && messages.length > 0) {
+    if (isLoading && isStreaming.current && messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
       if (lastMessage.role === 'assistant') {
         // Set streaming message ID for flow view tracking
@@ -115,6 +124,7 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
     if (isLoading) return;
     
     try {
+      isStreaming.current = true;
       setErrorMessage(null);
       // Store the user message ID for parentMessageId
       lastUserMessageRef.current = userMessage.id;
@@ -127,6 +137,7 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
         content: userMessage.content,
       });
     } catch (error) {
+      isStreaming.current = false;
       console.error('Error generating AI response:', error);
       setErrorMessage('Failed to send message. Please try again.');
     }

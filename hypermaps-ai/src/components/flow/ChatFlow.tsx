@@ -106,7 +106,7 @@ export default function ChatFlow({
     const userMessages = messages.filter(msg => msg.role === 'user');
     const latestUserMessage = userMessages.length > 0 ? userMessages[userMessages.length - 1] : null;
 
-    // Create nodes for all existing messages
+    // Create nodes for all existing messages in hypergraph
     messages.forEach((message) => {
       const position = calculateNodePosition(message, messages);
       
@@ -140,7 +140,8 @@ export default function ChatFlow({
             createdAt: message.createdAt,
             messageId: message.id,
             isGenerating: !message.content.trim() && !isCurrentlyStreaming,
-            streamingContent: streamingContent[message.id],
+            // Use streaming content if this message is currently streaming
+            streamingContent: isCurrentlyStreaming ? streamingContent[message.id] : undefined,
             onEdit: handleEditMessage,
             onDelete: handleDeleteMessage,
           },
@@ -165,15 +166,25 @@ export default function ChatFlow({
       }
     });
 
-    // Add a temporary streaming node if we're currently streaming and don't have the message in hypergraph yet
-    if (currentStreamingMessageId && !messages.find(m => m.id === currentStreamingMessageId)) {
+    // Only add a temporary streaming node if the message doesn't exist in hypergraph yet
+    // This ensures hypergraph messages always take priority and replace temporary nodes
+    const messageExistsInHypergraph = messages.find(m => m.id === currentStreamingMessageId);
+    
+    if (currentStreamingMessageId && !messageExistsInHypergraph) {
+      // Create a mock message object for the temporary node
+      const tempMessage = { 
+        id: currentStreamingMessageId, 
+        role: 'assistant' as const,
+        position: messages.length, // Position it at the end
+      } as ChatMessage;
+
+      // Create an augmented message list that includes our temporary node
+      // This ensures its position is calculated correctly relative to the final list
+      const messagesWithTemp = [...messages, tempMessage];
+
       const streamingPosition = calculateNodePosition(
-        { 
-          id: currentStreamingMessageId, 
-          role: 'assistant' as const,
-          position: messages.length,
-        } as ChatMessage, 
-        messages
+        tempMessage, 
+        messagesWithTemp
       );
       
       const streamingNode = {
@@ -185,7 +196,7 @@ export default function ChatFlow({
           createdAt: new Date(),
           messageId: currentStreamingMessageId,
           isGenerating: true,
-          streamingContent: streamingContent[currentStreamingMessageId] || '',
+          streamingContent: streamingContent[currentStreamingMessageId],
           onEdit: handleEditMessage,
           onDelete: handleDeleteMessage,
         },

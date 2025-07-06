@@ -1,5 +1,5 @@
 import { openai } from '@ai-sdk/openai';
-import { streamText, smoothStream } from 'ai';
+import { createDataStreamResponse, streamText } from 'ai';
 import { NextRequest } from 'next/server';
 
 export const runtime = 'edge';
@@ -11,60 +11,59 @@ interface ChatMessage {
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, conversationHistory = [] }: { 
-      message: string; 
-      conversationHistory?: ChatMessage[] 
-    } = await request.json();
+    const { messages }: { messages: ChatMessage[] } = await request.json();
 
     // Input validation
-    if (!message || typeof message !== 'string') {
+    if (!Array.isArray(messages) || messages.length === 0) {
       return Response.json(
-        { error: 'Invalid message format', details: 'Message must be a non-empty string' },
+        { error: 'Invalid messages format' },
         { status: 400 }
       );
     }
 
-    if (!Array.isArray(conversationHistory)) {
+    // Validate each message
+    const validMessages = messages.filter(msg => 
+      msg && 
+      typeof msg.content === 'string' && 
+      msg.content.trim().length > 0 &&
+      ['user', 'assistant'].includes(msg.role)
+    );
+
+    if (validMessages.length === 0) {
       return Response.json(
-        { error: 'Invalid conversation history format', details: 'Conversation history must be an array' },
+        { error: 'No valid messages provided' },
         { status: 400 }
       );
     }
 
-    console.log('Received AI request:', { message, historyLength: conversationHistory.length });
+    console.log('Processing messages for streaming...', { count: validMessages.length });
 
-    // Convert to AI SDK message format with validation
-    const messages = [
-      ...conversationHistory
-        .filter(msg => msg && typeof msg.content === 'string' && ['user', 'assistant'].includes(msg.role))
-        .map((msg: ChatMessage) => ({
-          role: msg.role as 'user' | 'assistant',
-          content: msg.content,
-        })),
-      {
-        role: 'user' as const,
-        content: message,
+    // Convert to AI SDK message format
+    const aiMessages = validMessages.map((msg: ChatMessage) => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+    }));
+
+    // Use createDataStreamResponse for proper data stream protocol
+    return createDataStreamResponse({
+      execute: (dataStream) => {
+        const result = streamText({
+          model: openai('gpt-4o-mini'),
+          messages: aiMessages,
+          system: 'You are a helpful AI assistant. Provide clear, concise, and helpful responses.',
+          temperature: 0.7,
+          maxTokens: 1000,
+        });
+
+        // Merge the streamText result into the data stream
+        result.mergeIntoDataStream(dataStream);
       },
-    ];
-
-    console.log('Processing messages for streaming...');
-
-    // Use streamText with proper error handling
-    const result = streamText({
-      model: openai('gpt-4o-mini'),
-      messages,
-      system: 'You are a helpful AI assistant. Provide clear, concise, and helpful responses.',
-      temperature: 0.7,
-      maxTokens: 1000,
-      experimental_transform: smoothStream({ chunking: 'word' }),
       onError: (error) => {
-        console.error('Stream error:', error);
-        throw error;
+        console.error('Streaming error:', error);
+        return error instanceof Error ? error.message : 'An error occurred during streaming';
       },
     });
-
-    // Return the streaming response in the format expected by flow-space
-    return result.toDataStreamResponse();
+    
   } catch (error) {
     console.error('Error in AI response:', error);
     
@@ -101,4 +100,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

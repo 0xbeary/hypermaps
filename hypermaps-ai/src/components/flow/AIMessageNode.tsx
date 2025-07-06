@@ -1,17 +1,27 @@
 import { Handle, NodeProps, Position } from '@xyflow/react';
 import { memo, useState, useCallback } from 'react';
 
-export type AIMessageNodeData = {
+export interface AIMessageNodeData {
   content: string;
   createdAt: Date;
   messageId: string;
   isGenerating?: boolean;
+  streamingContent?: string;
   onEdit?: (messageId: string, newContent: string, newRole?: 'user' | 'assistant') => void;
   onDelete?: (messageId: string) => void;
-};
+}
 
 function AIMessageNode({ data }: NodeProps<AIMessageNodeData>) {
-  const { content, createdAt, messageId, isGenerating, onEdit, onDelete } = data;
+  const { 
+    content, 
+    createdAt, 
+    messageId, 
+    isGenerating, 
+    streamingContent, 
+    onEdit, 
+    onDelete 
+  } = data;
+  
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(content);
 
@@ -38,6 +48,10 @@ function AIMessageNode({ data }: NodeProps<AIMessageNodeData>) {
     }
   }, [handleSave, content]);
 
+  // Use streaming content if available, otherwise use stored content
+  const displayContent = streamingContent || content;
+  const isCurrentlyStreaming = Boolean(streamingContent);
+
   return (
     <div className="px-4 py-3 bg-gray-900 border-2 border-green-400 rounded-lg min-w-[250px] max-w-[400px] shadow-lg shadow-green-400/20 hover:shadow-green-400/30 transition-shadow">
       <div className="flex items-center justify-between mb-2">
@@ -48,21 +62,25 @@ function AIMessageNode({ data }: NodeProps<AIMessageNodeData>) {
           </div>
         </div>
         
-        {!isEditing && !isGenerating && (
+        {!isEditing && (
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => setIsEditing(true)}
-              className="p-1 text-gray-400 hover:text-green-400 hover:bg-gray-800 rounded"
-              title="Edit message"
-            >
-              ✏️
-            </button>
+            {!isGenerating && (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="p-1 text-gray-400 hover:text-green-400 hover:bg-gray-800 rounded"
+                title="Edit message"
+              >
+                ✏️
+              </button>
+            )}
             <button
               onClick={handleDelete}
-              className="p-1 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded"
-              title="Delete message"
+              className={`p-1 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded ${
+                isGenerating ? 'bg-red-900/20 border border-red-400' : ''
+              }`}
+              title={isGenerating ? "Cancel/Delete stuck response" : "Delete message"}
             >
-              🗑️
+              {isGenerating ? '🛑' : '🗑️'}
             </button>
           </div>
         )}
@@ -98,17 +116,19 @@ function AIMessageNode({ data }: NodeProps<AIMessageNodeData>) {
           </div>
         ) : (
           <>
-            {isGenerating || (!content && !isEditing) ? (
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <div className="animate-spin w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full"></div>
-                <span>Generating response...</span>
+            {(isGenerating || isCurrentlyStreaming) && !displayContent ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <div className="animate-spin w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full"></div>
+                  <span>Generating response...</span>
+                </div>
               </div>
             ) : (
-              <div 
-                className="text-sm text-gray-100 whitespace-pre-wrap cursor-pointer hover:bg-gray-800 p-1 rounded transition-colors"
-                onClick={() => setIsEditing(true)}
-              >
-                {content || 'Click to edit...'}
+              <div className="text-sm text-gray-200 whitespace-pre-wrap">
+                {displayContent}
+                {isCurrentlyStreaming && (
+                  <span className="inline-block w-2 h-4 bg-green-400 animate-pulse ml-1"></span>
+                )}
               </div>
             )}
           </>

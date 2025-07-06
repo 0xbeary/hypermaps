@@ -5,14 +5,17 @@ export interface UserMessageNodeData {
   content: string;
   createdAt: Date;
   messageId: string;
+  isLatestUserMessage?: boolean;
   onEdit?: (messageId: string, newContent: string, newRole?: 'user' | 'assistant') => void;
   onDelete?: (messageId: string) => void;
+  onGenerateResponse?: (messageId: string) => Promise<void>;
 }
 
-function UserMessageNode({ data }: NodeProps<UserMessageNodeData>) {
-  const { content, createdAt, messageId, onEdit, onDelete } = data;
+function UserMessageNode({ data }: NodeProps) {
+  const { content, createdAt, messageId, isLatestUserMessage, onEdit, onDelete, onGenerateResponse } = data as unknown as UserMessageNodeData;
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(content);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const handleSave = useCallback(() => {
     if (onEdit && editContent !== content) {
@@ -26,6 +29,19 @@ function UserMessageNode({ data }: NodeProps<UserMessageNodeData>) {
       onDelete(messageId);
     }
   }, [onDelete, messageId]);
+
+  const handleGenerateResponse = useCallback(async () => {
+    if (onGenerateResponse && !isGenerating) {
+      setIsGenerating(true);
+      try {
+        await onGenerateResponse(messageId);
+      } catch (error) {
+        console.error('Error generating response:', error);
+      } finally {
+        setIsGenerating(false);
+      }
+    }
+  }, [onGenerateResponse, messageId, isGenerating]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && e.ctrlKey) {
@@ -45,6 +61,11 @@ function UserMessageNode({ data }: NodeProps<UserMessageNodeData>) {
           <div className="text-xs text-gray-400">
             {createdAt.toLocaleTimeString()}
           </div>
+          {isLatestUserMessage && (
+            <div className="text-xs text-green-400 font-semibold bg-green-400/10 px-2 py-1 rounded">
+              Latest
+            </div>
+          )}
         </div>
         
         {!isEditing && (
@@ -104,6 +125,30 @@ function UserMessageNode({ data }: NodeProps<UserMessageNodeData>) {
           </div>
         )}
       </div>
+
+      {/* Generate Response Button - only show for latest user message */}
+      {isLatestUserMessage && !isEditing && (
+        <div className="mb-2">
+          <button
+            onClick={handleGenerateResponse}
+            disabled={isGenerating}
+            className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors w-full justify-center"
+            title="Generate AI response"
+          >
+            {isGenerating ? (
+              <>
+                <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+                <span>Generating...</span>
+              </>
+            ) : (
+              <>
+                <span className="text-lg">+</span>
+                <span>Generate AI Response</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
       
       {/* Handle for connecting to AI responses */}
       <Handle 

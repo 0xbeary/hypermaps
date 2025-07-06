@@ -11,6 +11,8 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
   const createMessage = useCreateEntity(ChatMessage);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [streamingContent, setStreamingContent] = useState<{ [messageId: string]: string }>({});
+  const [currentStreamingMessageId, setCurrentStreamingMessageId] = useState<string | null>(null);
 
   // Convert hypergraph messages to AI SDK format
   const convertToAIMessages = useCallback((messages: ChatMessage[]) => {
@@ -21,6 +23,182 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
     })) || [];
   }, []);
 
+  // Function to generate AI response for flow-space with streaming UI updates
+  const generateAIResponseForFlow = useCallback(async (userMessage: ChatMessage, aiMessageId: string) => {
+    try {
+      setErrorMessage(null);
+      setCurrentStreamingMessageId(aiMessageId);
+      setStreamingContent(prev => ({ ...prev, [aiMessageId]: '' }));
+      
+      console.log('Starting AI response generation for:', aiMessageId);
+      
+      const response = await fetch('/api/ai-response', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [
+            ...convertToAIMessages(existingMessages),
+            {
+              role: 'user',
+              content: userMessage.content,
+            }
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API response error:', { status: response.status, text: errorText });
+        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+      }
+
+      if (!response.body) {
+        throw new Error('No response body available');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedContent = '';
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.trim() === '') continue;
+
+            try {
+              // Parse AI SDK data stream protocol: TYPE_ID:CONTENT_JSON
+              const colonIndex = line.indexOf(':');
+              if (colonIndex === -1) continue;
+
+              const typeId = line.slice(0, colonIndex);
+              const content = line.slice(colonIndex + 1);
+
+              console.log('Stream part:', { typeId, content });
+
+              // Handle different stream part types according to AI SDK protocol
+              switch (typeId) {
+                case '0': {
+                  // Text part: 0:string
+                  const textContent = JSON.parse(content);
+                  accumulatedContent += textContent;
+                  console.log('Added text:', textContent);
+                  
+                  setStreamingContent(prev => ({
+                    ...prev,
+                    [aiMessageId]: accumulatedContent
+                  }));
+                  break;
+                }
+                
+                case 'd': {
+                  // Finish message part: d:{finishReason, usage}
+                  const finishData = JSON.parse(content);
+                  console.log('Stream finished:', finishData);
+                  break;
+                }
+                
+                case '2': {
+                  // Data part: 2:Array<JSONValue>
+                  const dataContent = JSON.parse(content);
+                  console.log('Data part:', dataContent);
+                  break;
+                }
+                
+                case '8': {
+                  // Message annotation part: 8:Array<JSONValue>
+                  const annotationContent = JSON.parse(content);
+                  console.log('Message annotation:', annotationContent);
+                  break;
+                }
+                
+                case '3': {
+                  // Error part: 3:string
+                  const errorContent = JSON.parse(content);
+                  console.error('Stream error:', errorContent);
+                  throw new Error(errorContent);
+                }
+                
+                default: {
+                  console.log('Unknown stream part type:', typeId, content);
+                  break;
+                }
+              }
+            } catch (parseError) {
+              console.warn('Failed to parse stream part:', line, parseError);
+            }
+          }
+        }
+      } catch (streamError) {
+        console.error('Error during streaming:', streamError);
+        throw streamError;
+      } finally {
+        reader.releaseLock();
+      }
+
+      console.log('Streaming complete, accumulated content:', accumulatedContent);
+      console.log('Final content length:', accumulatedContent.length);
+
+      // Only create the message if we have content
+      if (accumulatedContent.trim().length > 0) {
+        try {
+          const aiMessage = createMessage({
+            id: aiMessageId,
+            content: accumulatedContent,
+            role: 'assistant',
+            createdAt: new Date(),
+            conversationId,
+            parentMessageId: userMessage.id,
+            position: existingMessages.length + 1,
+          });
+
+          console.log('Successfully created AI message:', aiMessage);
+        } catch (createError) {
+          console.error('Error creating AI message entity:', createError);
+          throw createError;
+        }
+      } else {
+        console.warn('No content accumulated, not creating message');
+        throw new Error('No content was received from the AI service');
+      }
+
+      // Clean up streaming state
+      setCurrentStreamingMessageId(null);
+      setStreamingContent(prev => {
+        const newContent = { ...prev };
+        delete newContent[aiMessageId];
+        return newContent;
+      });
+      
+    } catch (error: unknown) {
+      const errorObj = error as Error;
+      console.error('Error in generateAIResponseForFlow:', {
+        error,
+        message: errorObj?.message,
+        stack: errorObj?.stack,
+        aiMessageId,
+        userMessage: userMessage.id
+      });
+      
+      setErrorMessage('Failed to send message. Please try again.');
+      setCurrentStreamingMessageId(null);
+      setStreamingContent(prev => {
+        const newContent = { ...prev };
+        delete newContent[aiMessageId];
+        return newContent;
+      });
+      throw error;
+    }
+  }, [convertToAIMessages, existingMessages, createMessage, conversationId]);
+
+  // Regular useChat for chat interface
   const { 
     messages, 
     input, 
@@ -33,7 +211,6 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
     api: '/api/ai-response',
     initialMessages: convertToAIMessages(existingMessages),
     onFinish: async (message) => {
-      // Save the AI response to hypergraph
       console.log('AI response finished:', message);
       
       try {
@@ -43,13 +220,11 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
           role: 'assistant',
           createdAt: new Date(),
           conversationId,
-          parentMessageId: '', // Set based on your logic
+          parentMessageId: '',
           position: existingMessages.length + 1,
         });
         
         console.log('Saved AI message to hypergraph:', newMessage);
-        
-        // Clear any previous errors on successful completion
         setErrorMessage(null);
         setRetryCount(0);
       } catch (error) {
@@ -75,13 +250,11 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
     },
   });
 
-  // Function to generate AI response for flow-space
   const generateAIResponse = useCallback(async (userMessage: ChatMessage) => {
     if (isLoading) return;
     
     try {
-      setErrorMessage(null); // Clear previous errors
-      
+      setErrorMessage(null);
       await append({
         role: 'user',
         content: userMessage.content,
@@ -92,31 +265,6 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
     }
   }, [append, isLoading]);
 
-  // Retry function for failed requests
-  const retryLastMessage = useCallback(async () => {
-    if (retryCount >= 3) {
-      setErrorMessage('Maximum retry attempts reached. Please try again later.');
-      return;
-    }
-    
-    const lastUserMessage = messages.filter(m => m.role === 'user').pop();
-    if (lastUserMessage) {
-      setRetryCount(prev => prev + 1);
-      // Convert UIMessage to ChatMessage format for retry
-      const chatMessage = {
-        id: lastUserMessage.id,
-        content: lastUserMessage.content,
-        role: lastUserMessage.role as 'user' | 'assistant',
-        createdAt: new Date(),
-        conversationId,
-        parentMessageId: '',
-        position: 0,
-      };
-      await generateAIResponse(chatMessage);
-    }
-  }, [messages, generateAIResponse, retryCount, conversationId]);
-
-  // Clear error function
   const clearError = useCallback(() => {
     setErrorMessage(null);
     setRetryCount(0);
@@ -129,12 +277,16 @@ export function useStreamingChat(conversationId: string, existingMessages: ChatM
     handleSubmit,
     isLoading,
     generateAIResponse,
+    generateAIResponseForFlow,
     error: errorMessage || error,
-    retryLastMessage,
     clearError,
     canRetry: retryCount < 3,
+    currentStreamingMessageId,
+    streamingContent, // Expose streaming content for UI updates
   };
 }
+
+// ... rest of the component remains the same ...
 
 interface StreamingChatProps {
   conversationId: string;
@@ -154,9 +306,10 @@ export function StreamingChat({
     handleSubmit,
     isLoading,
     error,
-    retryLastMessage,
     clearError,
     canRetry,
+    currentStreamingMessageId,
+    streamingContent,
   } = useStreamingChat(conversationId, existingMessages);
 
   // Custom submit handler to save user messages to hypergraph
@@ -190,6 +343,15 @@ export function StreamingChat({
       console.error('Error saving user message:', error);
     }
   }, [input, createMessage, conversationId, existingMessages.length, handleSubmit, clearError]);
+
+  // Add this at the top of your component to catch unhandled promise rejections
+  if (typeof window !== 'undefined') {
+    window.addEventListener('unhandledrejection', (event) => {
+      console.error('Unhandled promise rejection:', event.reason);
+      console.error('Promise:', event.promise);
+      event.preventDefault(); // Prevent the default behavior
+    });
+  }
 
   return (
     <div className="flex flex-col h-full max-w-2xl mx-auto">
@@ -241,7 +403,9 @@ export function StreamingChat({
                   </button>
                   {canRetry && (
                     <button
-                      onClick={retryLastMessage}
+                      onClick={() => {
+                        // Implement retry logic
+                      }}
                       className="px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
                     >
                       Retry

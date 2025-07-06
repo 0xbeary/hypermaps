@@ -34,6 +34,8 @@ const nodeTypes = {
 type ChatFlowProps = {
   messages: ChatMessage[];
   conversationId: string;
+  streamingContent?: { [messageId: string]: string };
+  currentStreamingMessageId?: string | null;
   onGenerateAIResponse?: (userMessage: ChatMessage) => Promise<void>;
   onEditMessage?: (messageId: string, newContent: string, newRole?: 'user' | 'assistant') => void;
   onDeleteMessage?: (messageId: string) => void;
@@ -45,6 +47,8 @@ type FlowNodeData = AIMessageNodeData | UserMessageNodeData;
 export default function ChatFlow({ 
   messages, 
   conversationId, 
+  streamingContent,
+  currentStreamingMessageId,
   onGenerateAIResponse, 
   onEditMessage, 
   onDeleteMessage 
@@ -108,16 +112,29 @@ export default function ChatFlow({
     };
   };
 
+  // Handle generating AI response for a specific user message
+  const handleGenerateResponse = useCallback(async (messageId: string) => {
+    const userMessage = messages.find(msg => msg.id === messageId);
+    if (userMessage && onGenerateAIResponse) {
+      await onGenerateAIResponse(userMessage);
+    }
+  }, [messages, onGenerateAIResponse]);
+
   // Convert ChatMessage entities to React Flow nodes and edges
   const { flowNodes, flowEdges } = useMemo(() => {
     const nodes: Node<FlowNodeData>[] = [];
     const edges: Edge[] = [];
+
+    // Find the latest user message
+    const userMessages = messages.filter(msg => msg.role === 'user');
+    const latestUserMessage = userMessages.length > 0 ? userMessages[userMessages.length - 1] : null;
 
     messages.forEach((message) => {
       const position = calculateNodePosition(message, messages);
       
       // Create node based on message role with proper data typing
       if (message.role === 'user') {
+        const isLatestUserMessage = latestUserMessage?.id === message.id;
         const node: Node<UserMessageNodeData> = {
           id: message.id,
           type: 'userMessage',
@@ -126,12 +143,15 @@ export default function ChatFlow({
             content: message.content,
             createdAt: message.createdAt,
             messageId: message.id,
+            isLatestUserMessage,
             onEdit: handleEditMessage,
             onDelete: handleDeleteMessage,
+            onGenerateResponse: handleGenerateResponse,
           },
         };
         nodes.push(node);
       } else {
+        const isCurrentlyStreaming = currentStreamingMessageId === message.id;
         const node: Node<AIMessageNodeData> = {
           id: message.id,
           type: 'aiMessage',
@@ -140,7 +160,8 @@ export default function ChatFlow({
             content: message.content,
             createdAt: message.createdAt,
             messageId: message.id,
-            isGenerating: !message.content.trim(),
+            isGenerating: !message.content.trim() && !isCurrentlyStreaming,
+            streamingContent: streamingContent?.[message.id],
             onEdit: handleEditMessage,
             onDelete: handleDeleteMessage,
           },
@@ -166,7 +187,7 @@ export default function ChatFlow({
     });
 
     return { flowNodes: nodes, flowEdges: edges };
-  }, [messages, handleEditMessage, handleDeleteMessage]);
+  }, [messages, streamingContent, currentStreamingMessageId, handleEditMessage, handleDeleteMessage, handleGenerateResponse]);
 
   // Update nodes and edges when messages change
   useEffect(() => {

@@ -49,7 +49,6 @@ export interface ButtonProps
 export interface LinkButtonProps
   extends React.ComponentProps<typeof Link>,
     VariantProps<typeof buttonVariants> {
-  asChild?: boolean
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -69,7 +68,7 @@ Button.displayName = "Button"
 const LinkButton = React.forwardRef<
   React.ElementRef<typeof Link>,
   LinkButtonProps
->(({ className, variant, size, rounded, asChild = false, ...props }, ref) => {
+>(({ className, variant, size, rounded, ...props }, ref) => {
   return (
     <Link
       className={cn(buttonVariants({ variant, size, rounded, className }))}

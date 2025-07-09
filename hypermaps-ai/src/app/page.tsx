@@ -62,14 +62,14 @@ export default function HomePage() {
                         <LinkButton 
                           href={`/public-space/${space.id}`}
                           variant="default"
-                          size="sm"
+                          size="default"
                         >
-                          📄 View
+                          📄 Debug View
                         </LinkButton>
                         <LinkButton 
                           href={`/flow-space/${space.id}`}
                           variant="secondary"
-                          size="sm"
+                          size="default"
                         >
                           🗺️ Flow
                         </LinkButton>
@@ -119,14 +119,14 @@ export default function HomePage() {
                         <LinkButton 
                           href={`/private-space/${space.id}`}
                           variant="secondary"
-                          size="sm"
+                          size="default"
                         >
-                          🔒 View
+                          🔒 Debug View
                         </LinkButton>
                         <LinkButton 
                           href={`/flow-space/${space.id}`}
                           variant="default"
-                          size="sm"
+                          size="default"
                         >
                           🗺️ Flow
                         </LinkButton>

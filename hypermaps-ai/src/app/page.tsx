@@ -1,7 +1,9 @@
 'use client';
 
 import { useSpaces } from '@graphprotocol/hypergraph-react';
-import Link from 'next/link';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { LinkButton } from '@/components/ui/button';
+import { Loading } from '@/components/ui/loading';
 
 export default function HomePage() {
   const { data: publicSpaces, isPending: publicSpacesPending } = useSpaces({ mode: 'public' });
@@ -23,112 +25,118 @@ export default function HomePage() {
         {/* Spaces Grid */}
         <div className="grid md:grid-cols-2 gap-8 max-w-6xl mx-auto">
           {/* Public Spaces */}
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-            <div className="flex items-center mb-6">
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mr-4">
-                <span className="text-2xl">🌐</span>
+          <Card padding="lg">
+            <CardHeader>
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mr-4">
+                  <span className="text-2xl">🌐</span>
+                </div>
+                <div>
+                  <CardTitle>Public Spaces</CardTitle>
+                  <CardDescription>Explore shared knowledge maps</CardDescription>
+                </div>
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Public Spaces</h2>
-                <p className="text-gray-600">Explore shared knowledge maps</p>
-              </div>
-            </div>
+            </CardHeader>
             
-            <div className="space-y-3">
-              {publicSpacesPending && (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  <span className="ml-3 text-gray-600">Loading public spaces...</span>
-                </div>
-              )}
-              
-              {!publicSpacesPending && publicSpaces?.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <span className="text-4xl mb-2 block">🔍</span>
-                  No public spaces found
-                </div>
-              )}
-              
-              {publicSpaces?.map((space) => (
-                <div key={space.id} className="group p-4 rounded-xl bg-gray-50 hover:bg-blue-50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 group-hover:text-blue-900">{space.name}</h3>
-                      <p className="text-sm text-gray-500 mt-1">Public collaboration space</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Link 
-                        href={`/public-space/${space.id}`}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                      >
-                        📄 View
-                      </Link>
-                      <Link 
-                        href={`/flow-space/${space.id}`}
-                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
-                      >
-                        🗺️ Flow
-                      </Link>
+            <CardContent>
+              <div className="space-y-3">
+                {publicSpacesPending && (
+                  <Loading size="default" text="Loading public spaces..." className="py-8" />
+                )}
+                
+                {!publicSpacesPending && publicSpaces?.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <span className="text-4xl mb-2 block">🔍</span>
+                    No public spaces found
+                  </div>
+                )}
+                
+                {publicSpaces?.map((space) => (
+                  <div key={space.id} className="group p-4 rounded-xl bg-gray-50 hover:bg-blue-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 group-hover:text-blue-900">{space.name}</h3>
+                        <p className="text-sm text-gray-500 mt-1">Public collaboration space</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <LinkButton 
+                          href={`/public-space/${space.id}`}
+                          variant="default"
+                          size="sm"
+                        >
+                          📄 View
+                        </LinkButton>
+                        <LinkButton 
+                          href={`/flow-space/${space.id}`}
+                          variant="secondary"
+                          size="sm"
+                        >
+                          🗺️ Flow
+                        </LinkButton>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Private Spaces */}
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-            <div className="flex items-center mb-6">
-              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mr-4">
-                <span className="text-2xl">🔒</span>
+          <Card padding="lg">
+            <CardHeader>
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mr-4">
+                  <span className="text-2xl">🔒</span>
+                </div>
+                <div>
+                  <CardTitle>Private Spaces</CardTitle>
+                  <CardDescription>Your secure conversation maps</CardDescription>
+                </div>
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Private Spaces</h2>
-                <p className="text-gray-600">Your secure conversation maps</p>
-              </div>
-            </div>
+            </CardHeader>
             
-            <div className="space-y-3">
-              {privateSpacesPending && (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-                  <span className="ml-3 text-gray-600">Loading private spaces...</span>
-                </div>
-              )}
-              
-              {!privateSpacesPending && privateSpaces?.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <span className="text-4xl mb-2 block">🔐</span>
-                  No private spaces found
-                </div>
-              )}
-              
-              {privateSpaces?.map((space) => (
-                <div key={space.id} className="group p-4 rounded-xl bg-gray-50 hover:bg-purple-50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 group-hover:text-purple-900">{space.name}</h3>
-                      <p className="text-sm text-gray-500 mt-1">Private collaboration space</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Link 
-                        href={`/private-space/${space.id}`}
-                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
-                      >
-                        🔒 View
-                      </Link>
-                      <Link 
-                        href={`/flow-space/${space.id}`}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                      >
-                        🗺️ Flow
-                      </Link>
+            <CardContent>
+              <div className="space-y-3">
+                {privateSpacesPending && (
+                  <Loading variant="primary" size="default" text="Loading private spaces..." className="py-8" />
+                )}
+                
+                {!privateSpacesPending && privateSpaces?.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <span className="text-4xl mb-2 block">🔐</span>
+                    No private spaces found
+                  </div>
+                )}
+                
+                {privateSpaces?.map((space) => (
+                  <div key={space.id} className="group p-4 rounded-xl bg-gray-50 hover:bg-purple-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 group-hover:text-purple-900">{space.name}</h3>
+                        <p className="text-sm text-gray-500 mt-1">Private collaboration space</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <LinkButton 
+                          href={`/private-space/${space.id}`}
+                          variant="secondary"
+                          size="sm"
+                        >
+                          🔒 View
+                        </LinkButton>
+                        <LinkButton 
+                          href={`/flow-space/${space.id}`}
+                          variant="default"
+                          size="sm"
+                        >
+                          🗺️ Flow
+                        </LinkButton>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Feature Highlights */}
